@@ -1,0 +1,18 @@
+[package]
+name = "route_controller"
+version = "0.1.0"
+edition = "2021"
+authors = ["Athish Venkatesh <athishaves@gmail.com>"]
+
+description = "An attribute macro enabling a structured approach to defining routes and attaching middleware for axum servers"
+license = "MIT"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0"
+syn = { version = "1.0", features = ["full"] }
+proc-macro2 = "1.0.92"
+axum = "0.8.0"
+tokio = { version = "1.0", features = ["full"] }
