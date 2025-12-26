@@ -76,6 +76,7 @@ async fn main() {
   println!("  GET    /counter");
   println!("  POST   /counter/increment");
   println!("  DELETE /counter");
+  println!("  GET    /hello");
 
   axum::serve(listener, app).await.unwrap();
 }
