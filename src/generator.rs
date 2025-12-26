@@ -170,6 +170,11 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
           // Build wrapper parameters
           let mut wrapper_params = Vec::new();
           let mut call_args = Vec::new();
+          
+          // Track if we need shared extractors
+          let has_headers = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::HeaderParam);
+          let has_cookies = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::CookieParam);
+          let has_session = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::SessionParam);
 
           // Handle Path extractors (must be first and combined into tuple if multiple)
           if !path_params.is_empty() {
@@ -207,6 +212,17 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
               }
             }
           }
+          
+          // Add shared extractors once if needed
+          if has_headers {
+            wrapper_params.push(quote! { headers: axum::http::HeaderMap });
+          }
+          if has_cookies {
+            wrapper_params.push(quote! { cookies: axum_extra::extract::CookieJar });
+          }
+          if has_session {
+            wrapper_params.push(quote! { session: tower_sessions::Session });
+          }
 
           // Handle non-Path extractors
           for p in params.iter() {
@@ -231,6 +247,45 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
                   wrapper_params
                     .push(quote! { axum::extract::Query(#name): axum::extract::Query<#ty> });
                   call_args.push(quote! { #name });
+                }
+              }
+              crate::parser::ExtractorType::HeaderParam => {
+                if let syn::Pat::Ident(pat_ident) = pat {
+                  let name = &pat_ident.ident;
+                  let name_str = name.to_string();
+                  // Convert snake_case to kebab-case for header names (e.g., content_type -> content-type)
+                  let header_name = name_str.replace('_', "-");
+                  call_args.push(quote! {
+                    headers.get(#header_name)
+                      .and_then(|v| v.to_str().ok())
+                      .unwrap_or("")
+                      .to_string()
+                  });
+                }
+              }
+              crate::parser::ExtractorType::CookieParam => {
+                if let syn::Pat::Ident(pat_ident) = pat {
+                  let name = &pat_ident.ident;
+                  let name_str = name.to_string();
+                  call_args.push(quote! {
+                    cookies.get(#name_str)
+                      .map(|c| c.value().to_string())
+                      .unwrap_or_default()
+                  });
+                }
+              }
+              crate::parser::ExtractorType::SessionParam => {
+                if let syn::Pat::Ident(pat_ident) = pat {
+                  let name = &pat_ident.ident;
+                  let name_str = name.to_string();
+                  // Session.get() returns a Future, so we need to await it
+                  call_args.push(quote! {
+                    session.get::<#ty>(#name_str)
+                      .await
+                      .ok()
+                      .flatten()
+                      .unwrap_or_default()
+                  });
                 }
               }
               crate::parser::ExtractorType::None => {

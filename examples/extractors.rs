@@ -133,6 +133,24 @@ impl UserController {
   async fn list() -> &'static str {
     "User list"
   }
+
+  // Multiple header/cookie extractors
+  #[get(
+    "/profile",
+    extract(
+      authorization = HeaderParam,
+      username = CookieParam,
+    )
+  )]
+  async fn get_profile(
+    authorization: String,
+    username: String,
+  ) -> String {
+    format!(
+      "Profile - Auth: {}, Username: {}",
+      authorization, username
+    )
+  }
 }
 
 #[tokio::main]

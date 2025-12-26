@@ -19,6 +19,9 @@ proc-macro = true
 [features]
 default = []
 verbose-logging = []
+headers = []
+cookies = []
+sessions = []
 
 [dependencies]
 syn = { version = "2.0", features = ["full"] }
@@ -28,9 +31,11 @@ proc-macro2 = "1.0"
 [dev-dependencies]
 # Users must have axum >= 0.8
 axum = "0.8.8"
+axum-extra = { version = "0.12", features = ["cookie"] }
+tower-sessions = "0.13"
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tower = { version = "0.4", features = ["util"] }
+tower = { version = "0.5", features = ["util"] }
 syn = { version = "2.0", features = ["full"] }
 quote = "1.0"

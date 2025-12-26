@@ -21,6 +21,9 @@ pub enum ExtractorType {
   Json,
   Path,
   Query,
+  HeaderParam,
+  CookieParam,
+  SessionParam,
   None,
 }
 
@@ -116,6 +119,9 @@ pub fn extract_route_from_attrs(attrs: &[Attribute]) -> Option<RouteInfo> {
                       "Json" => ExtractorType::Json,
                       "Path" => ExtractorType::Path,
                       "Query" => ExtractorType::Query,
+                      "HeaderParam" => ExtractorType::HeaderParam,
+                      "CookieParam" => ExtractorType::CookieParam,
+                      "SessionParam" => ExtractorType::SessionParam,
                       _ => ExtractorType::None,
                     };
                     extractors.insert(param_name, extractor_type);
