@@ -1,17 +1,22 @@
 # route_controller
 
-Generate Axum routers from controller-style implementations with automatic JSON handling.
+Generate Axum routers from controller-style implementations with declarative extractors.
 
 ## Features
 
 - Clean controller-style API similar to Routing Controller (JS) or Rocket
 - Route prefixing for organizing endpoints
-- **Two controller modes:**
-  - `#[controller]` - Explicit extractors (full control)
-  - `#[auto_controller]` - Automatic Json/Form wrapping (convenient)
+- Declarative extractor syntax with `extract()` attribute
+- Built-in extractors:
+  - **Body extractors**: `Json`, `Form`, `Bytes`, `Text`, `Html`, `Xml`, `JavaScript`
+  - **URL extractors**: `Path`, `Query`
+  - **State extractor**: `State`
+- Optional extractors (with feature flags):
+  - `HeaderParam` - Extract from HTTP headers (requires `headers` feature)
+  - `CookieParam` - Extract from cookies (requires `cookies` feature)
+  - `SessionParam` - Extract from session storage (requires `sessions` feature)
 - Middleware support at the controller level
-- Form data support with `content_type = "form"`
-- HTTP method attributes: `#[get]`, `#[post]`, `#[put]`, `#[delete]`, `#[patch]`
+- HTTP method attributes: `#[get]`, `#[post]`, `#[put]`, `#[delete]`, `#[patch]`, `#[head]`, `#[options]`, `#[trace]`
 
 ## Installation
 
@@ -26,12 +31,9 @@ serde = { version = "1.0", features = ["derive"] }
 ## Quick Start
 
 ```rust
-use route_controller::{auto_controller, get, post};
-use axum::extract::Path;
+use route_controller::{controller, get, post};
 use serde::{Deserialize, Serialize};
 
-// Deserialize: Required for auto_controller to wrap input parameters
-// Serialize: Required when returning Json<T> in responses
 #[derive(Deserialize, Serialize)]
 struct User {
     name: String,
@@ -40,15 +42,15 @@ struct User {
 
 struct UserController;
 
-#[auto_controller(path = "/users")]
+#[controller(path = "/users")]
 impl UserController {
     #[get]
     async fn list() -> &'static str {
         "User list"
     }
 
-    #[get("/{id}")]
-    async fn get_one(Path(id): Path<u32>) -> axum::Json<User> {
+    #[get("/{id}", extract(id = Path))]
+    async fn get_one(id: u32) -> axum::Json<User> {
         let user = User {
             name: format!("User{}", id),
             email: format!("user{}@example.com", id),
@@ -56,8 +58,7 @@ impl UserController {
         axum::Json(user)
     }
 
-    // Plain type automatically wrapped with Json<User>
-    #[post]
+    #[post("/", extract(user = Json))]
     async fn create(user: User) -> String {
         format!("Created user: {} ({})", user.name, user.email)
     }
@@ -77,82 +78,236 @@ async fn main() {
 
 ## Controller Types
 
-### `#[auto_controller]` - Automatic JSON Wrapping
+### The `extract()` Attribute
 
-Automatically wraps plain struct parameters with `Json<T>`:
+Use the `extract()` attribute to specify how each parameter should be extracted from the request. The order of extractors in the attribute can differ from the parameter order:
 
 ```rust
-#[auto_controller(path = "/api/users")]
+#[controller(path = "/api/users")]
 impl ApiController {
-    // Input automatically wrapped with Json<User>
-    #[post]
+    // Single extractor
+    #[post("/", extract(user = Json))]
     async fn create(user: User) -> String {
         format!("Created: {}", user.name)
     }
 
-    // Path extractors are preserved as-is
-    #[put("/{id}")]
-    async fn update(Path(id): Path<u32>, user: User) -> String {
+    // Multiple Path extractors (order independent)
+    #[get("/{id}/posts/{post_id}", extract(post_id = Path, id = Path))]
+    async fn get_user_post(id: u32, post_id: u32) -> String {
+        format!("User {} - Post {}", id, post_id)
+    }
+
+    // Mixed extractors: Path + Json
+    #[put("/{id}", extract(id = Path, user = Json))]
+    async fn update(id: u32, user: User) -> String {
         format!("Updated user {}", id)
     }
-}
-```
 
-### `#[controller]` - Explicit Extractors
-
-Requires explicit `Json<T>` extractors for full control:
-
-```rust
-use axum::Json;
-
-#[controller(path = "/api/users")]
-impl ApiController {
-    // Must explicitly use Json<User>
-    #[post]
-    async fn create(Json(user): Json<User>) -> String {
-        format!("Created: {}", user.name)
+    // Path + Query extractors
+    #[get("/{id}/search", extract(id = Path, filters = Query))]
+    async fn search(id: u32, filters: SearchFilters) -> String {
+        format!("Searching for user {}", id)
     }
 }
 ```
 
-## Form Data Support
+### Available Extractors
 
-Use `content_type = "form"` for form data instead of JSON:
+#### Request Body Extractors
+
+- **`Json`** - Extract JSON request body: `extract(data = Json)`
+  - Type: Any deserializable struct (`T where T: serde::Deserialize`)
+  - Content-Type: `application/json`
+
+- **`Form`** - Extract form data (form-data or x-www-form-urlencoded): `extract(data = Form)`
+  - Type: Any deserializable struct (`T where T: serde::Deserialize`)
+  - Content-Type: `application/x-www-form-urlencoded` or `multipart/form-data`
+
+- **`Bytes`** - Extract raw binary data: `extract(data = Bytes)`
+  - Type: `Vec<u8>`
+  - Useful for file uploads, binary protocols, etc.
+
+- **`Text`** - Extract plain text: `extract(content = Text)`
+  - Type: `String`
+  - Content-Type: `text/plain`
+
+- **`Html`** - Extract HTML content: `extract(content = Html)`
+  - Type: `String`
+  - Content-Type: `text/html`
+
+- **`Xml`** - Extract XML content: `extract(content = Xml)`
+  - Type: `String`
+  - Content-Type: `application/xml` or `text/xml`
+
+- **`JavaScript`** - Extract JavaScript content: `extract(code = JavaScript)`
+  - Type: `String`
+  - Content-Type: `application/javascript` or `text/javascript`
+
+#### URL Extractors
+
+- **`Path`** - Extract path parameters: `extract(id = Path)`
+- **`Query`** - Extract query parameters: `extract(params = Query)`
+
+#### Other Extractors
+
+- **`State`** - Extract application state: `extract(state = State)`
+
+### Feature-Gated Extractors
+
+Enable additional extractors with Cargo features:
+
+```toml
+[dependencies]
+route_controller = { version = "0.2.0", features = ["headers", "cookies", "sessions"] }
+axum-extra = { version = "0.12", features = ["cookie"] }  # Required for cookies
+tower-sessions = "0.14"  # Required for sessions
+```
+
+- **`HeaderParam`** - Extract from HTTP headers (requires `headers` feature)
+
+  ```rust
+  #[get("/api/data", extract(authorization = HeaderParam))]
+  async fn get_data(authorization: String) -> String {
+      format!("Auth: {}", authorization)
+  }
+  ```
+
+- **`CookieParam`** - Extract from cookies (requires `cookies` feature + `axum-extra`)
+
+  ```rust
+  #[get("/profile", extract(session_id = CookieParam))]
+  async fn get_profile(session_id: String) -> String {
+      format!("Session: {}", session_id)
+  }
+  ```
+
+- **`SessionParam`** - Extract from session storage (requires `sessions` feature + `tower-sessions`)
+
+  ```rust
+  #[get("/profile", extract(user_id = SessionParam))]
+  async fn get_profile(user_id: String) -> String {
+      format!("User ID: {}", user_id)
+  }
+  ```
+
+## Using State
+
+Extract application state in your handlers using the `State` extractor:
+
+```rust
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+#[derive(Clone)]
+struct AppState {
+    counter: Arc<RwLock<i32>>,
+}
+
+struct CounterController;
+
+#[controller(path = "/counter")]
+impl CounterController {
+    #[get(extract(state = State))]
+    async fn get_count(state: AppState) -> axum::Json<i32> {
+        let count = *state.counter.read().await;
+        axum::Json(count)
+    }
+
+    #[post("/increment", extract(state = State))]
+    async fn increment(state: AppState) -> axum::Json<i32> {
+        let mut counter = state.counter.write().await;
+        *counter += 1;
+        axum::Json(*counter)
+    }
+}
+
+#[tokio::main]
+async fn main() {
+    let app_state = AppState {
+        counter: Arc::new(RwLock::new(0)),
+    };
+
+    let app = axum::Router::new()
+        .merge(CounterController::router())
+        .with_state(app_state);
+
+    // Start server...
+}
+```
+
+## Body Extractor Examples
+
+### Form Data
+
+Handle form submissions with the `Form` extractor:
 
 ```rust
 #[derive(Deserialize)]
-struct LoginData {
+struct LoginForm {
     username: String,
     password: String,
 }
 
-#[auto_controller(path = "/api")]
-impl ApiController {
-    // JSON endpoint (default)
-    #[post("/users")]
-    async fn create_user(user: User) -> String {
-        format!("Created: {}", user.name)
-    }
-
-    // Form data endpoint
-    #[post("/login", content_type = "form")]
-    async fn login(credentials: LoginData) -> String {
-        format!("Login: {}", credentials.username)
+#[controller(path = "/auth")]
+impl AuthController {
+    #[post("/login", extract(form = Form))]
+    async fn login(form: LoginForm) -> String {
+        format!("Logging in user: {}", form.username)
     }
 }
 ```
 
-**Testing:**
-
+Test with:
 ```bash
-# JSON request
-curl -X POST http://localhost:3007/api/users \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"John","email":"john@example.com"}'
-
-# Form data request
-curl -X POST http://localhost:3007/api/login \
+curl -X POST http://localhost:3000/auth/login \
   -d 'username=john&password=secret123'
+```
+
+### Binary Data
+
+Handle file uploads or binary data with the `Bytes` extractor:
+
+```rust
+#[controller(path = "/files")]
+impl FileController {
+    #[post("/upload", extract(data = Bytes))]
+    async fn upload(data: Vec<u8>) -> String {
+        format!("Received {} bytes", data.len())
+    }
+}
+```
+
+### Text Content Types
+
+Handle various text-based content types:
+
+```rust
+#[controller(path = "/content")]
+impl ContentController {
+    // Plain text
+    #[post("/text", extract(content = Text))]
+    async fn handle_text(content: String) -> String {
+        format!("Received text: {}", content)
+    }
+
+    // HTML content
+    #[post("/html", extract(html = Html))]
+    async fn handle_html(html: String) -> String {
+        format!("Received {} chars of HTML", html.len())
+    }
+
+    // XML content
+    #[post("/xml", extract(xml = Xml))]
+    async fn handle_xml(xml: String) -> String {
+        format!("Received XML: {}", xml)
+    }
+
+    // JavaScript code
+    #[post("/script", extract(code = JavaScript))]
+    async fn handle_script(code: String) -> String {
+        format!("Received {} chars of JavaScript", code.len())
+    }
+}
 ```
 
 ## Examples
@@ -160,38 +315,56 @@ curl -X POST http://localhost:3007/api/login \
 Run the examples to see different use cases:
 
 ```bash
-# Basic CRUD operations
+# Basic CRUD operations with extractors
 cargo run --example basic
 
-# Automatic Json<T> wrapping
-cargo run --example auto_controller
+# Advanced extractor combinations (Path, Query, Json)
+cargo run --example extractors
 
-# Side-by-side comparison
-cargo run --example comparison
+# Body extractors (Form, Bytes, Text, Html, Xml, JavaScript)
+cargo run --example body_extractors
 
-# Form data handling
-cargo run --example form_support
+# Application state management
+cargo run --example state
+
+# Session handling with tower-sessions
+cargo run --example session
 ```
 
 ### With Middleware
+
+Apply middleware at the controller level:
 
 ```rust
 use axum::{
     middleware::Next,
     extract::Request,
-    response::{IntoResponse, Response},
+    response::Response,
+    body::Body,
 };
 
-async fn log_middleware(request: Request, next: Next) -> Result<impl IntoResponse, Response> {
+async fn log_middleware(request: Request<Body>, next: Next) -> Response<Body> {
     println!("Request: {} {}", request.method(), request.uri());
-    Ok(next.run(request).await)
+    next.run(request).await
 }
 
-#[auto_controller(path = "/api", middleware = crate::log_middleware)]
-impl SecureController {
+#[controller(path = "/api", middleware = log_middleware)]
+impl ApiController {
     #[get("/data")]
-    async fn secure_data() -> String {
+    async fn get_data() -> String {
         "Protected data".to_string()
+    }
+}
+```
+
+You can also apply multiple middlewares:
+
+```rust
+#[controller(middleware = middleware_a, middleware = middleware_b)]
+impl MultiMiddlewareController {
+    #[get("/test")]
+    async fn test() -> &'static str {
+        "ok"
     }
 }
 ```

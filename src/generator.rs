@@ -285,11 +285,35 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
                   call_args.push(quote! { #name });
                 }
               }
+              crate::parser::ExtractorType::Form => {
+                if let syn::Pat::Ident(pat_ident) = pat {
+                  let name = &pat_ident.ident;
+                  wrapper_params.push(quote! { axum::Form(#name): axum::Form<#ty> });
+                  call_args.push(quote! { #name });
+                }
+              }
               crate::parser::ExtractorType::Query => {
                 if let syn::Pat::Ident(pat_ident) = pat {
                   let name = &pat_ident.ident;
                   wrapper_params
                     .push(quote! { axum::extract::Query(#name): axum::extract::Query<#ty> });
+                  call_args.push(quote! { #name });
+                }
+              }
+              crate::parser::ExtractorType::Bytes => {
+                if let syn::Pat::Ident(pat_ident) = pat {
+                  let name = &pat_ident.ident;
+                  wrapper_params.push(quote! { #name: axum::body::Bytes });
+                  call_args.push(quote! { #name.to_vec() });
+                }
+              }
+              crate::parser::ExtractorType::Text
+              | crate::parser::ExtractorType::Html
+              | crate::parser::ExtractorType::Xml
+              | crate::parser::ExtractorType::JavaScript => {
+                if let syn::Pat::Ident(pat_ident) = pat {
+                  let name = &pat_ident.ident;
+                  wrapper_params.push(quote! { #name: String });
                   call_args.push(quote! { #name });
                 }
               }

@@ -18,13 +18,21 @@ pub struct ParamInfo {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExtractorType {
-  Json,
   Path,
   Query,
   HeaderParam,
   CookieParam,
   SessionParam,
   State,
+  // Body extractors
+  Json,
+  Form,
+  Bytes,
+  Text,
+  Html,
+  Xml,
+  JavaScript,
+
   None,
 }
 
@@ -118,12 +126,18 @@ pub fn extract_route_from_attrs(attrs: &[Attribute]) -> Option<RouteInfo> {
                     let param_name = parts[0].to_string();
                     let extractor_type = match parts[1] {
                       "Json" => ExtractorType::Json,
+                      "Form" => ExtractorType::Form,
                       "Path" => ExtractorType::Path,
                       "Query" => ExtractorType::Query,
                       "HeaderParam" => ExtractorType::HeaderParam,
                       "CookieParam" => ExtractorType::CookieParam,
                       "SessionParam" => ExtractorType::SessionParam,
                       "State" => ExtractorType::State,
+                      "Bytes" => ExtractorType::Bytes,
+                      "Text" => ExtractorType::Text,
+                      "Html" => ExtractorType::Html,
+                      "Xml" => ExtractorType::Xml,
+                      "JavaScript" => ExtractorType::JavaScript,
                       _ => ExtractorType::None,
                     };
                     extractors.insert(param_name, extractor_type);
