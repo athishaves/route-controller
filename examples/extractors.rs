@@ -71,6 +71,28 @@ impl UserController {
     )
   }
 
+  // Mixed extractors: Path + Query + Json
+  #[put(
+    "/{id}/posts/{post_id}/update",
+    extract(id = Path, post_id = Path, filters = Query, user = Json)
+  )]
+  async fn complex_update(
+    id: u32,
+    post_id: u32,
+    filters: SearchFilters,
+    user: User,
+  ) -> String {
+    format!(
+      "Complex update for user post {}-{}: {} ({}), filters: {} {}",
+      id,
+      post_id,
+      user.name,
+      user.email,
+      filters.limit.unwrap_or(0),
+      filters.query.unwrap_or("".to_string()),
+    )
+  }
+
   // No extractors
   #[get("/list")]
   async fn list() -> &'static str {
