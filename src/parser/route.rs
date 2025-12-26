@@ -1,78 +1,9 @@
-//! Parsing controller attributes and routes
+//! Route information extraction from attributes
 
-use proc_macro::TokenStream;
 use quote::ToTokens;
-use syn::{Attribute, FnArg, Pat, Path, Type};
+use syn::Attribute;
 
-pub struct ControllerConfig {
-  pub route_prefix: Option<String>,
-  pub middlewares: Vec<Path>,
-}
-
-#[derive(Clone)]
-pub struct ParamInfo {
-  pub pat: Pat,
-  pub ty: Type,
-  pub extractor_type: ExtractorType,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ExtractorType {
-  Path,
-  Query,
-  HeaderParam,
-  CookieParam,
-  SessionParam,
-  State,
-  // Body extractors
-  Json,
-  Form,
-  Bytes,
-  Text,
-  Html,
-  Xml,
-  JavaScript,
-
-  None,
-}
-
-pub fn parse_controller_attributes(attr: &TokenStream) -> ControllerConfig {
-  let mut route_prefix: Option<String> = None;
-  let mut middlewares: Vec<Path> = vec![];
-
-  let binding = attr.to_string();
-  let args = binding.split(",");
-
-  for arg in args {
-    let arg = arg.trim();
-
-    if arg.starts_with("path") {
-      let parts: Vec<&str> = arg.split("=").collect();
-      if parts.len() == 2 {
-        let mut value = parts[1].trim().replace("\"", "");
-        if !value.starts_with('/') {
-          value = format!("/{}", value);
-        }
-        route_prefix = Some(value);
-        log_verbose!("Parsed route prefix: [{}]", route_prefix.as_ref().unwrap());
-      }
-    } else if arg.starts_with("middleware") {
-      let parts: Vec<&str> = arg.split("=").collect();
-      if parts.len() == 2 {
-        let value = parts[1].trim();
-        if let Ok(middleware_path) = syn::parse_str::<Path>(&value) {
-          log_verbose!("Parsed middleware: [{}]", value);
-          middlewares.push(middleware_path);
-        }
-      }
-    }
-  }
-
-  ControllerConfig {
-    route_prefix,
-    middlewares,
-  }
-}
+use super::extractor_types::ExtractorType;
 
 pub struct RouteInfo {
   pub method: String,
@@ -214,41 +145,4 @@ pub fn extract_route_from_attrs(attrs: &[Attribute]) -> Option<RouteInfo> {
     }
   }
   None
-}
-
-/// Analyzes function parameters using explicit extractor mappings from route attributes
-pub fn analyze_params(
-  sig: &syn::Signature,
-  extractor_map: &std::collections::HashMap<String, ExtractorType>,
-) -> Vec<ParamInfo> {
-  let mut params = Vec::new();
-
-  for input in &sig.inputs {
-    if let FnArg::Typed(pat_type) = input {
-      let pat = (*pat_type.pat).clone();
-      let ty = (*pat_type.ty).clone();
-
-      // Extract parameter name
-      let param_name = if let Pat::Ident(pat_ident) = &pat {
-        pat_ident.ident.to_string()
-      } else {
-        // For complex patterns, try to extract the first identifier
-        "unknown".to_string()
-      };
-
-      // Get extractor type from the map, default to None
-      let extractor_type = extractor_map
-        .get(&param_name)
-        .cloned()
-        .unwrap_or(ExtractorType::None);
-
-      params.push(ParamInfo {
-        pat,
-        ty,
-        extractor_type,
-      });
-    }
-  }
-
-  params
 }
