@@ -83,7 +83,7 @@ pub fn extract_route_from_attrs(attrs: &[Attribute]) -> Option<RouteInfo> {
     if path_segments.len() == 1 {
       let method = path_segments[0].to_lowercase();
       match method.as_str() {
-        "get" | "post" | "put" | "delete" | "patch" => {
+        "get" | "head" | "delete" | "options" | "patch" | "post" | "put" | "trace" | "connect" => {
           let mut route_path = "/".to_string();
           let mut extractors = std::collections::HashMap::new();
 

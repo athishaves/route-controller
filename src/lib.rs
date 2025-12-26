@@ -97,6 +97,26 @@ pub fn get(_: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
+pub fn head(_: TokenStream, item: TokenStream) -> TokenStream {
+  item
+}
+
+#[proc_macro_attribute]
+pub fn delete(_: TokenStream, item: TokenStream) -> TokenStream {
+  item
+}
+
+#[proc_macro_attribute]
+pub fn options(_: TokenStream, item: TokenStream) -> TokenStream {
+  item
+}
+
+#[proc_macro_attribute]
+pub fn patch(_: TokenStream, item: TokenStream) -> TokenStream {
+  item
+}
+
+#[proc_macro_attribute]
 pub fn post(_: TokenStream, item: TokenStream) -> TokenStream {
   item
 }
@@ -107,11 +127,6 @@ pub fn put(_: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn delete(_: TokenStream, item: TokenStream) -> TokenStream {
-  item
-}
-
-#[proc_macro_attribute]
-pub fn patch(_: TokenStream, item: TokenStream) -> TokenStream {
+pub fn trace(_: TokenStream, item: TokenStream) -> TokenStream {
   item
 }

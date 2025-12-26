@@ -2,7 +2,7 @@
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
-use route_controller::{controller, delete, get, patch, post, put};
+use route_controller::{controller, delete, get, head, options, patch, post, put, trace};
 use tower::ServiceExt; // for `oneshot`
 
 // Test controller for basic routes
@@ -127,6 +127,27 @@ impl HttpMethodsController {
   }
 }
 
+// Test additional HTTP methods
+struct AdditionalMethodsController;
+
+#[controller]
+impl AdditionalMethodsController {
+  #[head("/check")]
+  async fn head_check() -> &'static str {
+    "HEAD"
+  }
+
+  #[options("/config")]
+  async fn options_config() -> &'static str {
+    "OPTIONS"
+  }
+
+  #[trace("/debug")]
+  async fn trace_debug() -> &'static str {
+    "TRACE"
+  }
+}
+
 #[tokio::test]
 async fn test_all_http_methods() {
   let app = HttpMethodsController::router();
@@ -205,6 +226,7 @@ async fn test_all_http_methods() {
 
   // Test PATCH
   let response = app
+    .clone()
     .oneshot(
       Request::builder()
         .method("PATCH")
@@ -219,6 +241,61 @@ async fn test_all_http_methods() {
     .await
     .unwrap();
   assert_eq!(&body[..], b"PATCH");
+}
+
+#[tokio::test]
+async fn test_additional_http_methods() {
+  let app = AdditionalMethodsController::router();
+
+  // Test HEAD
+  let response = app
+    .clone()
+    .oneshot(
+      Request::builder()
+        .method("HEAD")
+        .uri("/check")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+
+  // Test OPTIONS
+  let response = app
+    .clone()
+    .oneshot(
+      Request::builder()
+        .method("OPTIONS")
+        .uri("/config")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+  let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    .await
+    .unwrap();
+  assert_eq!(&body[..], b"OPTIONS");
+
+  // Test TRACE
+  let response = app
+    .clone()
+    .oneshot(
+      Request::builder()
+        .method("TRACE")
+        .uri("/debug")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+  let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    .await
+    .unwrap();
+  assert_eq!(&body[..], b"TRACE");
 }
 
 // Test default slash route
