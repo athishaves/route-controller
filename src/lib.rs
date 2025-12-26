@@ -2,68 +2,75 @@
 //!
 //! Generate Axum routers from controller-style implementations.
 //!
-//! ## Example
+//! ## Controllers
+//!
+//! Two types of controllers are available:
+//!
+//! - `#[controller]` - Standard controller (requires explicit extractors like `Json<T>`, `Form<T>`)
+//! - `#[auto_controller]` - Auto controller (automatically wraps plain types with `Json<T>` or `Form<T>`)
+//!
+//! ## Standard Controller Example
 //!
 //! ```ignore
-//! use route_controller::{controller, get, post};
+//! use route_controller::{controller, post};
+//! use axum::Json;
 //!
-//! struct UserController;
+//! #[derive(Deserialize)]
+//! struct User {
+//!     name: String,
+//! }
 //!
 //! #[controller(path = "/users")]
 //! impl UserController {
-//!     #[get("/")]
-//!     async fn list() -> String {
-//!         "User list".to_string()
-//!     }
-//!
 //!     #[post("/")]
-//!     async fn create() -> String {
-//!         "User created".to_string()
+//!     async fn create(Json(user): Json<User>) -> String {
+//!         format!("Created: {}", user.name)
 //!     }
 //! }
+//! ```
 //!
-//! let app = UserController::router();
+//! ## Auto Controller Example
+//!
+//! ```ignore
+//! use route_controller::{auto_controller, post};
+//!
+//! #[derive(Deserialize)]
+//! struct User {
+//!     name: String,
+//! }
+//!
+//! #[auto_controller(path = "/users")]
+//! impl UserController {
+//!     // Plain types automatically wrapped with Json<T> by default
+//!     #[post("/")]
+//!     async fn create(user: User) -> String {
+//!         format!("Created: {}", user.name)
+//!     }
+//!
+//!     // Use content_type = "form" for form data
+//!     #[post("/register", content_type = "form")]
+//!     async fn register(user: User) -> String {
+//!         format!("Registered: {}", user.name)
+//!     }
+//! }
 //! ```
 
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, ItemImpl};
 
 #[macro_use]
 mod logger;
+mod controller;
 mod generator;
 mod parser;
 
 #[proc_macro_attribute]
 pub fn controller(attr: TokenStream, item: TokenStream) -> TokenStream {
-	let impl_block = parse_macro_input!(item as ItemImpl);
-	let name = &impl_block.self_ty;
+	controller::controller_impl(attr, item, false)
+}
 
-	log_verbose!("Generating router for: [{}]", quote::quote! { #name }.to_string());
-
-	let config = parser::parse_controller_attributes(&attr);
-
-	let route_registrations = generator::generate_route_registrations(&impl_block);
-	let base_router = generator::generate_base_router(&route_registrations);
-
-	if route_registrations.is_empty() {
-		log_info!("Warning: No routes found in controller");
-		return TokenStream::from(generator::generate_router_impl(
-			&impl_block,
-			name,
-			base_router,
-		));
-	}
-
-	let router_with_middleware = generator::apply_middlewares(
-		base_router, &config.middlewares
-	);
-	let final_router = generator::apply_route_prefix(
-		router_with_middleware, config.route_prefix.as_ref()
-	);
-
-	TokenStream::from(generator::generate_router_impl(
-		&impl_block, name, final_router
-	))
+#[proc_macro_attribute]
+pub fn auto_controller(attr: TokenStream, item: TokenStream) -> TokenStream {
+	controller::controller_impl(attr, item, true)
 }
 
 #[proc_macro_attribute]

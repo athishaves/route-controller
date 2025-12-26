@@ -29,3 +29,4 @@ proc-macro2 = "1.0"
 # Users must have axum >= 0.8
 axum = "0.8.8"
 tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
