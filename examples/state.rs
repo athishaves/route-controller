@@ -42,6 +42,16 @@ impl CounterController {
   }
 }
 
+struct HelloController;
+
+#[controller]
+impl HelloController {
+  #[get("/hello", extract(state = State))]
+  async fn hello(state: AppState) -> String {
+    state.counter.read().await.to_string()
+  }
+}
+
 #[tokio::main]
 async fn main() {
   // Initialize application state with counter starting at 0
@@ -52,6 +62,8 @@ async fn main() {
   // Build router with state
   let app = axum::Router::new()
     .merge(CounterController::router())
+    .merge(HelloController::router())
+    // State will be injected for all the routes
     .with_state(app_state);
 
   // Start server
