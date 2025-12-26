@@ -28,31 +28,31 @@ struct UserController;
 
 #[controller(path = "/api/users")]
 impl UserController {
-	#[get("/")]
-	async fn list() -> String {
-		"User list".to_string()
-	}
+    #[get("/")]
+    async fn list() -> String {
+        "User list".to_string()
+    }
 
-	#[get("/{id}")]
-	async fn get_one(Path(id): Path<u32>) -> String {
-		format!("User {}", id)
-	}
+    #[get("/{id}")]
+    async fn get_one(Path(id): Path<u32>) -> String {
+        format!("User {}", id)
+    }
 
-	#[post("/")]
-	async fn create() -> String {
-		"User created".to_string()
-	}
+    #[post("/")]
+    async fn create() -> String {
+        "User created".to_string()
+    }
 }
 
 #[tokio::main]
 async fn main() {
-	let app = UserController::router();
-	
-	let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-		.await
-		.unwrap();
-	
-	axum::serve(listener, app).await.unwrap();
+    let app = UserController::router();
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+        .await
+        .unwrap();
+
+    axum::serve(listener, app).await.unwrap();
 }
 ```
 
@@ -63,23 +63,23 @@ async fn main() {
 ```rust
 #[controller(path = "/api/users")]
 impl UserController {
-	#[get]
-	async fn list() -> String {
-		"Users".to_string()
-	}
+    #[get]
+    async fn list() -> String {
+        "Users".to_string()
+    }
 }
 
 #[controller]
 impl HealthController {
-	#[get("/health")]
-	async fn health() -> &'static str {
-		"OK"
-	}
+    #[get("/health")]
+    async fn health() -> &'static str {
+        "OK"
+    }
 }
 
 let app = axum::Router::new()
-	.merge(UserController::router())
-	.merge(HealthController::router());
+    .merge(UserController::router())
+    .merge(HealthController::router());
 ```
 
 ### With Middleware
@@ -88,16 +88,16 @@ let app = axum::Router::new()
 use axum::{middleware::Next, http::Request};
 
 async fn auth_middleware<B>(req: Request<B>, next: Next<B>) -> impl axum::response::IntoResponse {
-	// Auth logic here
-	next.run(req).await
+    // Auth logic here
+    next.run(req).await
 }
 
 #[controller(path = "/api", middleware = auth_middleware)]
 impl SecureController {
-	#[get("/data")]
-	async fn secure_data() -> String {
-		"Protected data".to_string()
-	}
+    #[get("/data")]
+    async fn secure_data() -> String {
+        "Protected data".to_string()
+    }
 }
 ```
 
