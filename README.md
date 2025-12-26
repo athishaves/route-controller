@@ -258,6 +258,7 @@ impl AuthController {
 ```
 
 Test with:
+
 ```bash
 curl -X POST http://localhost:3000/auth/login \
   -d 'username=john&password=secret123'

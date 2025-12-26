@@ -85,10 +85,6 @@ async fn main() {
   println!("  POST /api/html        - HTML content (text/html)");
   println!("  POST /api/xml         - XML content (application/xml)");
   println!("  POST /api/script      - JavaScript (application/javascript)");
-  println!("\nExample requests:");
-  println!("  curl -X POST http://localhost:3005/api/login -d 'username=john&password=secret'");
-  println!("  curl -X POST http://localhost:3005/api/text -H 'Content-Type: text/plain' -d 'Hello, World!'");
-  println!("  curl -X POST http://localhost:3005/api/upload --data-binary @file.bin");
 
   axum::serve(listener, app).await.unwrap();
 }
