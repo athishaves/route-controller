@@ -22,8 +22,10 @@ pub fn generate_route_registrations(impl_block: &ItemImpl) -> Vec<TokenStream> {
         let needs_wrapper = params
           .iter()
           .any(|p| p.extractor_type != crate::parser::ExtractorType::None);
+        
+        let has_response_headers = !route_info.response_headers.is_empty() || route_info.content_type.is_some();
 
-        if needs_wrapper {
+        if needs_wrapper || has_response_headers {
           // Generate a wrapper function that handles extraction
           let wrapper_name = syn::Ident::new(
             &format!("{}_wrapper", handler_name),
@@ -164,8 +166,10 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
         let needs_wrapper = params
           .iter()
           .any(|p| p.extractor_type != crate::parser::ExtractorType::None);
+        
+        let has_response_headers = !route_info.response_headers.is_empty() || route_info.content_type.is_some();
 
-        if needs_wrapper {
+        if needs_wrapper || has_response_headers {
           let handler_name = &method.sig.ident;
           let wrapper_name = syn::Ident::new(
             &format!("{}_wrapper", handler_name),
@@ -185,6 +189,15 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
           };
 
           let return_type = &method.sig.output;
+
+          // Determine if we need to wrap the return type with headers
+          let needs_header_wrapping = !route_info.response_headers.is_empty() || route_info.content_type.is_some();
+          
+          let wrapper_return_type = if needs_header_wrapping {
+            quote! { -> impl axum::response::IntoResponse }
+          } else {
+            quote! { #return_type }
+          };
 
           // Check if this handler uses State and get the state type
           let uses_state = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::State);
@@ -369,17 +382,51 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
 
           let wrapper_signature = if uses_state {
             quote! {
-              #async_token fn #wrapper_name(#(#wrapper_params),*) #return_type
+              #async_token fn #wrapper_name(#(#wrapper_params),*) #wrapper_return_type
             }
           } else {
             quote! {
-              #async_token fn #wrapper_name(#(#wrapper_params),*) #return_type
+              #async_token fn #wrapper_name(#(#wrapper_params),*) #wrapper_return_type
+            }
+          };
+
+          // Build header additions
+          let header_additions: Vec<_> = route_info.response_headers.iter().map(|(name, value)| {
+            quote! { (axum::http::header::HeaderName::from_static(#name), #value) }
+          }).collect();
+          
+          let wrapper_body = if let Some(ref ct) = route_info.content_type {
+            if !header_additions.is_empty() {
+              quote! {
+                let response = Self::#handler_name(#(#call_args),*)#await_token;
+                (
+                  [
+                    (axum::http::header::CONTENT_TYPE, #ct),
+                    #(#header_additions),*
+                  ],
+                  response
+                )
+              }
+            } else {
+              quote! {
+                let response = Self::#handler_name(#(#call_args),*)#await_token;
+                ([(axum::http::header::CONTENT_TYPE, #ct)], response)
+              }
+            }
+          } else if !header_additions.is_empty() {
+            quote! {
+              let response = Self::#handler_name(#(#call_args),*)#await_token;
+              ([#(#header_additions),*], response)
+            }
+          } else {
+            quote! {
+              Self::#handler_name(#(#call_args),*)#await_token
             }
           };
 
           wrappers.push(quote! {
               #wrapper_signature {
-                  Self::#handler_name(#(#call_args),*)#await_token
+                  #wrapper_body
               }
           });
 

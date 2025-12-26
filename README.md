@@ -15,6 +15,7 @@ Generate Axum routers from controller-style implementations with declarative ext
   - `HeaderParam` - Extract from HTTP headers (requires `headers` feature)
   - `CookieParam` - Extract from cookies (requires `cookies` feature)
   - `SessionParam` - Extract from session storage (requires `sessions` feature)
+- **Response header support**: `header()` and `content_type()` attributes
 - Middleware support at the controller level
 - HTTP method attributes: `#[get]`, `#[post]`, `#[put]`, `#[delete]`, `#[patch]`, `#[head]`, `#[options]`, `#[trace]`
 
@@ -311,6 +312,89 @@ impl ContentController {
 }
 ```
 
+## Response Headers
+
+Add custom headers to your responses using the `header()` and `content_type()` attributes:
+
+### Single Header
+
+```rust
+#[controller(path = "/api")]
+impl ApiController {
+    #[get("/data", header("x-api-version", "1.0"))]
+    async fn get_data() -> String {
+        "Data with custom header".to_string()
+    }
+}
+```
+
+### Multiple Headers
+
+```rust
+#[controller(path = "/api")]
+impl ApiController {
+    #[get(
+        "/info",
+        header("x-api-version", "2.0"),
+        header("x-request-id", "abc-123")
+    )]
+    async fn get_info() -> String {
+        "Info with multiple headers".to_string()
+    }
+}
+```
+
+### Content-Type Header
+
+```rust
+#[controller(path = "/api")]
+impl ApiController {
+    // Set custom content type
+    #[get("/xml", content_type("application/xml"))]
+    async fn get_xml() -> String {
+        r#"<?xml version="1.0"?>
+<response>
+    <message>Hello XML</message>
+</response>"#.to_string()
+    }
+
+    // Plain text with charset
+    #[get("/text", content_type("text/plain; charset=utf-8"))]
+    async fn get_text() -> String {
+        "Plain text response".to_string()
+    }
+}
+```
+
+### Combining Content-Type with Custom Headers
+
+```rust
+#[controller(path = "/api")]
+impl ApiController {
+    #[post(
+        "/data",
+        content_type("application/json"),
+        header("x-api-version", "2.0"),
+        header("x-rate-limit", "100")
+    )]
+    async fn post_data() -> axum::Json<Response> {
+        axum::Json(Response { status: "ok".to_string() })
+    }
+}
+```
+
+Test with:
+
+```bash
+# Check headers
+curl -v http://localhost:3000/api/data
+
+# Output will include:
+# < x-api-version: 2.0
+# < x-rate-limit: 100
+# < content-type: application/json
+```
+
 ## Examples
 
 Run the examples to see different use cases:
@@ -324,6 +408,9 @@ cargo run --example extractors
 
 # Body extractors (Form, Bytes, Text, Html, Xml, JavaScript)
 cargo run --example body_extractors
+
+# Response headers (header, content_type)
+cargo run --example response_headers
 
 # Application state management
 cargo run --example state
