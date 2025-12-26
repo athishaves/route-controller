@@ -149,7 +149,7 @@ fn is_axum_extractor(ty: &Type) -> bool {
 		// Known Axum extractors
 		matches!(
 			last_segment,
-			Some("Path") | Some("Query") | Some("Json") | 
+			Some("Path") | Some("Query") | Some("Json") |
 			Some("State") | Some("Request") | Some("Extension") |
 			Some("Form") | Some("Multipart") | Some("WebSocketUpgrade") |
 			Some("ConnectInfo") | Some("OriginalUri") | Some("MatchedPath")
