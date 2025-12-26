@@ -20,7 +20,7 @@
 //!     async fn create(user: User) -> String {
 //!         format!("Created: {}", user.name)
 //!     }
-//!     
+//!
 //!     // Multiple extractors
 //!     #[get("/{id}", extract(id = Path, filters = Query))]
 //!     async fn get_user(id: u32, filters: SearchFilters) -> String {
@@ -39,30 +39,30 @@ mod parser;
 
 #[proc_macro_attribute]
 pub fn controller(attr: TokenStream, item: TokenStream) -> TokenStream {
-	controller::controller_impl(attr, item)
+  controller::controller_impl(attr, item)
 }
 
 #[proc_macro_attribute]
 pub fn get(_: TokenStream, item: TokenStream) -> TokenStream {
-	item
+  item
 }
 
 #[proc_macro_attribute]
 pub fn post(_: TokenStream, item: TokenStream) -> TokenStream {
-	item
+  item
 }
 
 #[proc_macro_attribute]
 pub fn put(_: TokenStream, item: TokenStream) -> TokenStream {
-	item
+  item
 }
 
 #[proc_macro_attribute]
 pub fn delete(_: TokenStream, item: TokenStream) -> TokenStream {
-	item
+  item
 }
 
 #[proc_macro_attribute]
 pub fn patch(_: TokenStream, item: TokenStream) -> TokenStream {
-	item
+  item
 }
