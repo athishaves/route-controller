@@ -1,7 +1,16 @@
 use axum::http::{Request, StatusCode};
-use route_controller::{controller, get};
+use route_controller::{controller, get, post};
+use serde::{Deserialize, Serialize};
 use tower::ServiceExt;
 use tower_sessions::{MemoryStore, Session, SessionManagerLayer};
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+struct UserProfile {
+  id: u32,
+  name: String,
+  email: String,
+  role: String,
+}
 
 struct SessionController;
 
@@ -54,6 +63,37 @@ impl SessionController {
     let _ = session.insert("role", "admin".to_string()).await;
     let _ = session.insert("user_name", "john_doe".to_string()).await;
     "Session set".to_string()
+  }
+
+  // Save a struct to session
+  #[post("/profile/save", extract(profile = Json))]
+  async fn save_profile(session: Session, profile: UserProfile) -> String {
+    let _ = session.insert("profile", profile.clone()).await;
+    format!("Profile saved: {:?}", profile)
+  }
+
+  // Extract struct from session using SessionParam
+  #[get("/profile/get", extract(profile = SessionParam))]
+  async fn get_saved_profile(profile: Option<UserProfile>) -> String {
+    match profile {
+      Some(p) => format!(
+        "Profile from session - ID: {}, Name: {}, Email: {}, Role: {}",
+        p.id, p.name, p.email, p.role
+      ),
+      None => "No profile found in session".to_string(),
+    }
+  }
+
+  // Direct struct access from session (without SessionParam)
+  #[get("/profile/direct")]
+  async fn get_profile_direct(session: Session) -> String {
+    match session.get::<UserProfile>("profile").await {
+      Ok(Some(profile)) => format!(
+        "Direct Profile - ID: {}, Name: {}, Email: {}, Role: {}",
+        profile.id, profile.name, profile.email, profile.role
+      ),
+      _ => "No profile found in session".to_string(),
+    }
   }
 }
 
@@ -274,4 +314,144 @@ async fn test_session_persistence_across_requests() {
     .unwrap();
   let body_str = String::from_utf8(body.to_vec()).unwrap();
   assert_eq!(body_str, "Username: testuser, Role: admin");
+}
+
+#[tokio::test]
+async fn test_save_and_retrieve_struct_with_session_param() {
+  let app = setup_app().await;
+
+  let profile = UserProfile {
+    id: 1,
+    name: "John Doe".to_string(),
+    email: "john@example.com".to_string(),
+    role: "admin".to_string(),
+  };
+
+  // Save profile to session
+  let request = Request::builder()
+    .uri("/sessions/profile/save")
+    .method("POST")
+    .header("content-type", "application/json")
+    .body(axum::body::Body::from(serde_json::to_string(&profile).unwrap()))
+    .unwrap();
+
+  let response = app.clone().oneshot(request).await.unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+
+  let cookie_header = response
+    .headers()
+    .get("set-cookie")
+    .and_then(|v| v.to_str().ok())
+    .unwrap();
+
+  // Retrieve profile using SessionParam
+  let request = Request::builder()
+    .uri("/sessions/profile/get")
+    .header("cookie", cookie_header)
+    .body(axum::body::Body::empty())
+    .unwrap();
+
+  let response = app.oneshot(request).await.unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+
+  let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    .await
+    .unwrap();
+  let body_str = String::from_utf8(body.to_vec()).unwrap();
+
+  assert_eq!(
+    body_str,
+    "Profile from session - ID: 1, Name: John Doe, Email: john@example.com, Role: admin"
+  );
+}
+
+#[tokio::test]
+async fn test_save_and_retrieve_struct_direct() {
+  let app = setup_app().await;
+
+  let profile = UserProfile {
+    id: 2,
+    name: "Jane Smith".to_string(),
+    email: "jane@example.com".to_string(),
+    role: "user".to_string(),
+  };
+
+  // Save profile to session
+  let request = Request::builder()
+    .uri("/sessions/profile/save")
+    .method("POST")
+    .header("content-type", "application/json")
+    .body(axum::body::Body::from(serde_json::to_string(&profile).unwrap()))
+    .unwrap();
+
+  let response = app.clone().oneshot(request).await.unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+
+  let cookie_header = response
+    .headers()
+    .get("set-cookie")
+    .and_then(|v| v.to_str().ok())
+    .unwrap();
+
+  // Retrieve profile directly from session
+  let request = Request::builder()
+    .uri("/sessions/profile/direct")
+    .header("cookie", cookie_header)
+    .body(axum::body::Body::empty())
+    .unwrap();
+
+  let response = app.oneshot(request).await.unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+
+  let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    .await
+    .unwrap();
+  let body_str = String::from_utf8(body.to_vec()).unwrap();
+
+  assert_eq!(
+    body_str,
+    "Direct Profile - ID: 2, Name: Jane Smith, Email: jane@example.com, Role: user"
+  );
+}
+
+#[tokio::test]
+async fn test_retrieve_missing_struct_with_session_param() {
+  let app = setup_app().await;
+
+  // Request without saving profile first
+  let request = Request::builder()
+    .uri("/sessions/profile/get")
+    .body(axum::body::Body::empty())
+    .unwrap();
+
+  let response = app.oneshot(request).await.unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+
+  let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    .await
+    .unwrap();
+  let body_str = String::from_utf8(body.to_vec()).unwrap();
+
+  assert_eq!(body_str, "No profile found in session");
+}
+
+#[tokio::test]
+async fn test_retrieve_missing_struct_direct() {
+  let app = setup_app().await;
+
+  // Request without saving profile first
+  let request = Request::builder()
+    .uri("/sessions/profile/direct")
+    .body(axum::body::Body::empty())
+    .unwrap();
+
+  let response = app.oneshot(request).await.unwrap();
+  assert_eq!(response.status(), StatusCode::OK);
+
+  let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    .await
+    .unwrap();
+  let body_str = String::from_utf8(body.to_vec()).unwrap();
+
+  assert_eq!(body_str, "No profile found in session");
 }
