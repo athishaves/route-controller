@@ -1,97 +1,124 @@
-# Route Controller
+# route_controller
 
-A Rust procedural macro crate that provides a structured approach for defining routes and attaching middleware for Axum-based web servers. This crate helps generate Axum routers by combining annotated methods into routes with specified HTTP methods and paths, while also allowing middleware functions to be applied to these routes.
+Generate Axum routers from controller-style implementations.
 
 ## Features
 
-- Attribute Macros: #[controller]: Defines a controller with a base path and middleware. #[route]: Associates a method with an HTTP method and path.
-- Middleware Support: Apply middleware functions to the entire controller or specific routes.
-- Structured Routing: Easily map methods to routes and combine them into an Axum Router.
+- Clean controller-style API similar to Routing Controller (JS) or Rocket
+- Route prefixing for organizing endpoints
+- Middleware support at the controller level
+- HTTP method attributes: `#[get]`, `#[post]`, `#[put]`, `#[delete]`, `#[patch]`
 
 ## Installation
 
-```sh
-cargo add route_controller
+```toml
+[dependencies]
+route_controller = "0.1.2"
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
 ```
 
-## Usage
+## Quick Start
 
 ```rust
-use axum::{
-    body::Body,
-    extract::{Request, State},
-    http::StatusCode,
-    middleware::Next,
-    response::{IntoResponse, Response},
-    Json, Router,
-};
-use route_controller::{controller, route};
+use route_controller::{controller, get, post};
+use axum::extract::Path;
 
-#[derive(Clone)]
-pub struct AppState {}
+struct UserController;
 
-// Auth Middleware using AppState
-async fn auth_middleware(
-    State(\_app_state): State<AppState>,
-    req: Request,
-    next: Next,
-) -> Result<Response<Body>, StatusCode> {
-    Ok(next.run(req).await)
-}
+#[controller(path = "/api/users")]
+impl UserController {
+	#[get("/")]
+	async fn list() -> String {
+		"User list".to_string()
+	}
 
-// Context Middleware without AppState
-async fn context_middleware(
-    mut req: Request,
-    next: Next
-) -> Result<Response<Body>, StatusCode> {
-    let trace_id = "123"; // Replace with a uuid
-    req.headers_mut().append("trace_id", trace_id.parse().unwrap());
-    Ok(next.run(req).await)
-}
+	#[get("/{id}")]
+	async fn get_one(Path(id): Path<u32>) -> String {
+		format!("User {}", id)
+	}
 
-pub struct ApiController;
-
-// Controller with base_path and middlewares
-#[controller(
-    path = "/api",
-    middleware = "auth_middleware",
-    middleware = "context_middleware"
-)]
-impl ApiController {
-    // route with http methods and endpoint
-    #[route("GET", "/users")]
-    pub async fn get_users(\_request: Request) -> impl IntoResponse {
-        Json(vec!["user1", "user2"])
-    }
-
-    // route using AppState
-    #[route("POST", "/users")]
-    pub async fn create_user(
-        State(_app_state): State<AppState>,
-        _request: Request
-    ) -> impl IntoResponse {
-        Json("User Created")
-    }
-
+	#[post("/")]
+	async fn create() -> String {
+		"User created".to_string()
+	}
 }
 
 #[tokio::main]
 async fn main() {
-    let app_state = AppState {};
-    let router = Router::new()
-        .merge(ApiController::router(app_state.clone()))
-        .with_state(app_state);
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3030").await.unwrap();
-    axum::serve(listener, router).await.unwrap();
+	let app = UserController::router();
+	
+	let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
+		.await
+		.unwrap();
+	
+	axum::serve(listener, app).await.unwrap();
 }
 ```
 
-## Explanation
+## Examples
 
-- Controller Definition: Use #[controller] to define the base path and middleware for the controller.
-- Route Definition: Use #[route] to define the HTTP method and path for each handler method.
-- Middleware: Middleware functions are defined separately and applied using the middleware argument in #[controller].
+### Multiple Controllers
 
-## Generated Code
+```rust
+#[controller(path = "/api/users")]
+impl UserController {
+	#[get]
+	async fn list() -> String {
+		"Users".to_string()
+	}
+}
 
-The #[controller] macro generates a router function for the controller, which constructs an Axum::Router by combining the specified routes and applying the middleware.
+#[controller]
+impl HealthController {
+	#[get("/health")]
+	async fn health() -> &'static str {
+		"OK"
+	}
+}
+
+let app = axum::Router::new()
+	.merge(UserController::router())
+	.merge(HealthController::router());
+```
+
+### With Middleware
+
+```rust
+use axum::{middleware::Next, http::Request};
+
+async fn auth_middleware<B>(req: Request<B>, next: Next<B>) -> impl axum::response::IntoResponse {
+	// Auth logic here
+	next.run(req).await
+}
+
+#[controller(path = "/api", middleware = auth_middleware)]
+impl SecureController {
+	#[get("/data")]
+	async fn secure_data() -> String {
+		"Protected data".to_string()
+	}
+}
+```
+
+## Verbose Logging
+
+Enable verbose logging during compilation:
+
+```toml
+[dependencies]
+route_controller = { version = "0.1.2", features = ["verbose-logging"] }
+```
+
+Or build/run using features flag directly:
+
+```bash
+cargo build --example basic --features verbose-logging
+cargo run --example basic --features verbose-logging
+```
+
+This shows detailed information about route registration during compilation.
+
+## License
+
+MIT

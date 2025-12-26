@@ -1,18 +1,31 @@
 [package]
 name = "route_controller"
-version = "0.1.1"
-edition = "2021"
+version = "0.2.0"
+edition = "2024"
 authors = ["Athish Venkatesh <athishaves@gmail.com>"]
-
-description = "An attribute macro enabling a structured approach to defining routes and attaching middleware for axum servers"
+description = "A procedural macro for generating Axum routers from controller-style implementations with support for route prefixing and middleware"
 license = "MIT"
+repository = "https://github.com/athishaves/route_controller"
+homepage = "https://github.com/athishaves/route_controller"
+documentation = "https://docs.rs/route_controller"
+keywords = ["axum", "router", "controller", "macro", "web"]
+categories = ["web-programming", "web-programming::http-server"]
+readme = "README.md"
+rust-version = "1.85"
 
 [lib]
 proc-macro = true
 
+[features]
+default = []
+verbose-logging = []
+
 [dependencies]
+syn = { version = "2.0", features = ["full"] }
 quote = "1.0"
-syn = { version = "1.0", features = ["full"] }
-proc-macro2 = "1.0.92"
-axum = "0.8.0"
+proc-macro2 = "1.0"
+
+[dev-dependencies]
+# Users must have axum >= 0.8
+axum = "0.8.8"
 tokio = { version = "1.0", features = ["full"] }
