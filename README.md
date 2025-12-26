@@ -29,6 +29,17 @@ tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 ```
 
+### Optional Dependencies
+
+For additional extractors, enable features and add required dependencies:
+
+```toml
+[dependencies]
+route_controller = { version = "0.2.0", features = ["headers", "cookies", "sessions"] }
+axum-extra = { version = "0.12", features = ["cookie"] }  # Required for cookies
+tower-sessions = "0.14"  # Required for sessions
+```
+
 ## Quick Start
 
 ```rust
@@ -69,10 +80,11 @@ impl UserController {
 async fn main() {
     let app = UserController::router();
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3003")
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
         .await
         .unwrap();
 
+    println!("🚀 Server running on http://127.0.0.1:3000");
     axum::serve(listener, app).await.unwrap();
 }
 ```
@@ -397,27 +409,60 @@ curl -v http://localhost:3000/api/data
 
 ## Examples
 
-Run the examples to see different use cases:
+The crate includes 15 comprehensive examples demonstrating different features:
 
 ```bash
-# Basic CRUD operations with extractors
-cargo run --example basic
+# 1. Basic routing with different HTTP methods (GET, POST, PUT, DELETE)
+cargo run --example 01_basic_routing
 
-# Advanced extractor combinations (Path, Query, Json)
-cargo run --example extractors
+# 2. Path parameter extraction
+cargo run --example 02_path_params
 
-# Body extractors (Form, Bytes, Text, Html, Xml, JavaScript)
-cargo run --example body_extractors
+# 3. Query parameter extraction
+cargo run --example 03_query_params
 
-# Response headers (header, content_type)
-cargo run --example response_headers
+# 4. JSON body extraction
+cargo run --example 04_json_body
 
-# Application state management
-cargo run --example state
+# 5. Form data handling (form-data and x-www-form-urlencoded)
+cargo run --example 05_form_data
 
-# Session handling with tower-sessions
-cargo run --example session
+# 6. Text body extraction
+cargo run --example 06_text_body
+
+# 7. Binary data (bytes) handling
+cargo run --example 07_bytes
+
+# 8. Header extraction (requires 'headers' feature)
+cargo run --example 08_headers --features headers
+
+# 9. Cookie handling (requires 'cookies' feature)
+cargo run --example 09_cookies --features cookies
+
+# 10. Session management (requires 'sessions' feature)
+cargo run --example 10_sessions --features sessions
+
+# 11. Application state management
+cargo run --example 11_state
+
+# 12. Response headers and content types
+cargo run --example 12_response_headers
+
+# 13. Middleware application
+cargo run --example 13_middleware
+
+# 14. Mixed extractors (Path + Query + Json)
+cargo run --example 14_mixed_extractors
+
+# 15. Multiple controllers with merged routers
+cargo run --example 15_multiple_controllers
 ```
+
+Each example includes:
+
+- Clear comments explaining the feature
+- Test commands using curl
+- Working code that can be run immediately
 
 ### With Middleware
 
@@ -428,10 +473,9 @@ use axum::{
     middleware::Next,
     extract::Request,
     response::Response,
-    body::Body,
 };
 
-async fn log_middleware(request: Request<Body>, next: Next) -> Response<Body> {
+async fn log_middleware(request: Request, next: Next) -> Response {
     println!("Request: {} {}", request.method(), request.uri());
     next.run(request).await
 }
@@ -448,7 +492,11 @@ impl ApiController {
 You can also apply multiple middlewares:
 
 ```rust
-#[controller(middleware = middleware_a, middleware = middleware_b)]
+#[controller(
+    path = "/api",
+    middleware = middleware_a,
+    middleware = middleware_b
+)]
 impl MultiMiddlewareController {
     #[get("/test")]
     async fn test() -> &'static str {
@@ -456,6 +504,8 @@ impl MultiMiddlewareController {
     }
 }
 ```
+
+See [examples/13_middleware.rs](examples/13_middleware.rs) for a complete example.
 
 ## Verbose Logging
 
