@@ -22,8 +22,10 @@ struct SearchParams {
 
 #[derive(Deserialize)]
 struct UserIds {
-  #[serde(deserialize_with = "deserialize_comma_separated")]
+  // default is required to handle missing query params
+  #[serde(default, deserialize_with = "deserialize_comma_separated")]
   ids: Vec<u32>,
+  // default is not added. Missing param will result in an error
   #[serde(deserialize_with = "deserialize_comma_separated")]
   id_strings: Vec<String>,
 }
