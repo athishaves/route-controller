@@ -412,3 +412,132 @@ async fn test_no_extractors() {
     .unwrap();
   assert_eq!(&body[..], b"simple");
 }
+
+// Test Query extractor with comma-separated Vec parameters
+#[derive(Deserialize, Debug)]
+struct VecQueryParams {
+  #[serde(deserialize_with = "deserialize_comma_separated")]
+  ids: Vec<u32>,
+  #[serde(deserialize_with = "deserialize_comma_separated")]
+  id_strings: Vec<String>,
+}
+
+fn deserialize_comma_separated<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+  D: serde::Deserializer<'de>,
+  T: std::str::FromStr,
+  T::Err: std::fmt::Display,
+{
+  use serde::de::Error;
+  let s: String = String::deserialize(deserializer)?;
+  s.split(',')
+    .filter(|s| !s.is_empty())
+    .map(|s| s.trim().parse().map_err(Error::custom))
+    .collect()
+}
+
+struct VecQueryController;
+
+#[controller]
+impl VecQueryController {
+  #[get("/filter", extract(params = Query))]
+  async fn filter(params: VecQueryParams) -> String {
+    format!(
+      "IDs: {:?}, Strings: {:?}",
+      params.ids, params.id_strings
+    )
+  }
+}
+
+#[tokio::test]
+async fn test_comma_separated_vec_query_params() {
+  let app = VecQueryController::router();
+
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/filter?ids=2,1,5&id_strings=foo,bar,baz")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+
+  let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    .await
+    .unwrap();
+  let body_str = String::from_utf8(body.to_vec()).unwrap();
+  assert!(body_str.contains("[2, 1, 5]"));
+  assert!(body_str.contains(r#"["foo", "bar", "baz"]"#));
+}
+
+#[tokio::test]
+async fn test_comma_separated_vec_with_spaces() {
+  let app = VecQueryController::router();
+
+  // Test with spaces around commas
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/filter?ids=10,%2020,%2030&id_strings=a,%20b,%20c")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+
+  let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    .await
+    .unwrap();
+  let body_str = String::from_utf8(body.to_vec()).unwrap();
+  assert!(body_str.contains("[10, 20, 30]"));
+  assert!(body_str.contains(r#"["a", "b", "c"]"#));
+}
+
+#[tokio::test]
+async fn test_comma_separated_vec_single_value() {
+  let app = VecQueryController::router();
+
+  // Test with single values (no commas)
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/filter?ids=42&id_strings=single")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+
+  let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    .await
+    .unwrap();
+  let body_str = String::from_utf8(body.to_vec()).unwrap();
+  assert!(body_str.contains("[42]"));
+  assert!(body_str.contains(r#"["single"]"#));
+}
+
+#[tokio::test]
+async fn test_comma_separated_vec_invalid_number() {
+  let app = VecQueryController::router();
+
+  // Test with invalid number format
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/filter?ids=1,invalid,3&id_strings=valid")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  // Should return 400 Bad Request for invalid number
+  assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}

@@ -20,6 +20,28 @@ struct SearchParams {
   sort: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct UserIds {
+  #[serde(deserialize_with = "deserialize_comma_separated")]
+  ids: Vec<u32>,
+  #[serde(deserialize_with = "deserialize_comma_separated")]
+  id_strings: Vec<String>,
+}
+
+fn deserialize_comma_separated<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+  D: serde::Deserializer<'de>,
+  T: std::str::FromStr,
+  T::Err: std::fmt::Display,
+{
+  use serde::de::Error;
+  let s: String = String::deserialize(deserializer)?;
+  s.split(',')
+    .filter(|s| !s.is_empty())
+    .map(|s| s.trim().parse().map_err(Error::custom))
+    .collect()
+}
+
 struct UserController;
 
 #[controller(path = "/users")]
@@ -41,8 +63,7 @@ impl UserController {
     format!("User {} - Post {}", id, post_id)
   }
 
-  // Multiple Query extractors are not allowed
-  // Axum does not support multiple Query extractors
+  // Multiple Query & Json extractors are not allowed
   // A single struct should be used instead
   #[get("/search", extract(params = Query))]
   async fn search(params: SearchParams) -> String {
@@ -51,6 +72,18 @@ impl UserController {
       params.query.unwrap_or_default(),
       params.limit.unwrap_or(10),
       params.sort.unwrap_or_default()
+    )
+  }
+
+  // Multiple Query extractors of the same type
+  // curl --location 'localhost:3010/users/filter?ids=2%2C1&id_strings=2%2C1'
+  // Output: Filtering users: [2, 1]. String ids: ["2", "1"]
+  #[get("/filter", extract(user_ids = Query))]
+  async fn filter_users(user_ids: UserIds) -> String {
+    format!(
+      "Filtering users: {:?}. String ids: {:?}",
+      user_ids.ids,
+      user_ids.id_strings
     )
   }
 
