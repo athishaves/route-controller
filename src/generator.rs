@@ -115,15 +115,42 @@ pub fn generate_router_impl(
   // Generate wrapper functions for handlers that need Json extraction
   let wrapper_functions = generate_wrapper_functions(impl_block);
 
-  quote! {
-      #impl_block
-      impl #name {
-          #(#wrapper_functions)*
-
-          pub fn router() -> axum::Router {
-              #final_router
-          }
+  // Check if any handler uses State extractor and get the state type
+  let state_type: Option<Type> = impl_block.items.iter().find_map(|item| {
+    if let syn::ImplItem::Fn(method) = item {
+      if let Some(route_info) = crate::parser::extract_route_from_attrs(&method.attrs) {
+        let params = crate::parser::analyze_params(&method.sig, &route_info.extractors);
+        return params
+          .iter()
+          .find(|p| p.extractor_type == crate::parser::ExtractorType::State)
+          .map(|p| p.ty.clone());
       }
+    }
+    None
+  });
+
+  if let Some(state_ty) = state_type {
+    quote! {
+        #impl_block
+        impl #name {
+            #(#wrapper_functions)*
+
+            pub fn router() -> axum::Router<#state_ty> {
+                #final_router
+            }
+        }
+    }
+  } else {
+    quote! {
+        #impl_block
+        impl #name {
+            #(#wrapper_functions)*
+
+            pub fn router() -> axum::Router {
+                #final_router
+            }
+        }
+    }
   }
 }
 
@@ -159,6 +186,17 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
 
           let return_type = &method.sig.output;
 
+          // Check if this handler uses State and get the state type
+          let uses_state = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::State);
+          let state_type = if uses_state {
+            params
+              .iter()
+              .find(|p| p.extractor_type == crate::parser::ExtractorType::State)
+              .map(|p| &p.ty)
+          } else {
+            None
+          };
+
           // Group Path parameters for tuple extraction
           let path_params: Vec<_> = params
             .iter()
@@ -170,11 +208,12 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
           // Build wrapper parameters
           let mut wrapper_params = Vec::new();
           let mut call_args = Vec::new();
-          
+
           // Track if we need shared extractors
           let has_headers = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::HeaderParam);
           let has_cookies = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::CookieParam);
           let has_session = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::SessionParam);
+          let has_state = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::State);
 
           // Handle Path extractors (must be first and combined into tuple if multiple)
           if !path_params.is_empty() {
@@ -212,8 +251,13 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
               }
             }
           }
-          
+
           // Add shared extractors once if needed
+          if has_state {
+            if let Some(state_ty) = state_type {
+              wrapper_params.push(quote! { state: axum::extract::State<#state_ty> });
+            }
+          }
           if has_headers {
             wrapper_params.push(quote! { headers: axum::http::HeaderMap });
           }
@@ -288,6 +332,10 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
                   });
                 }
               }
+              crate::parser::ExtractorType::State => {
+                // Extract state and pass it through
+                call_args.push(quote! { state.0.clone() });
+              }
               crate::parser::ExtractorType::None => {
                 wrapper_params.push(quote! { #pat: #ty });
                 call_args.push(quote! { #pat });
@@ -295,8 +343,18 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
             }
           }
 
+          let wrapper_signature = if uses_state {
+            quote! {
+              #async_token fn #wrapper_name(#(#wrapper_params),*) #return_type
+            }
+          } else {
+            quote! {
+              #async_token fn #wrapper_name(#(#wrapper_params),*) #return_type
+            }
+          };
+
           wrappers.push(quote! {
-              #async_token fn #wrapper_name(#(#wrapper_params),*) #return_type {
+              #wrapper_signature {
                   Self::#handler_name(#(#call_args),*)#await_token
               }
           });

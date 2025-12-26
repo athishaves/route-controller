@@ -24,6 +24,7 @@ pub enum ExtractorType {
   HeaderParam,
   CookieParam,
   SessionParam,
+  State,
   None,
 }
 
@@ -122,6 +123,7 @@ pub fn extract_route_from_attrs(attrs: &[Attribute]) -> Option<RouteInfo> {
                       "HeaderParam" => ExtractorType::HeaderParam,
                       "CookieParam" => ExtractorType::CookieParam,
                       "SessionParam" => ExtractorType::SessionParam,
+                      "State" => ExtractorType::State,
                       _ => ExtractorType::None,
                     };
                     extractors.insert(param_name, extractor_type);
