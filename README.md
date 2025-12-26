@@ -89,7 +89,7 @@ impl ApiController {
     async fn create(user: User) -> String {
         format!("Created: {}", user.name)
     }
-    
+
     // Path extractors are preserved as-is
     #[put("/{id}")]
     async fn update(Path(id): Path<u32>, user: User) -> String {
@@ -133,7 +133,7 @@ impl ApiController {
     async fn create_user(user: User) -> String {
         format!("Created: {}", user.name)
     }
-    
+
     // Form data endpoint
     #[post("/login", content_type = "form")]
     async fn login(credentials: LoginData) -> String {
@@ -143,6 +143,7 @@ impl ApiController {
 ```
 
 **Testing:**
+
 ```bash
 # JSON request
 curl -X POST http://localhost:3007/api/users \
