@@ -6,15 +6,15 @@ use syn::{parse_macro_input, ItemImpl};
 use crate::generator;
 use crate::parser;
 
-pub fn controller_impl(attr: TokenStream, item: TokenStream, is_auto_controller: bool) -> TokenStream {
+pub fn controller_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
 	let impl_block = parse_macro_input!(item as ItemImpl);
 	let name = &impl_block.self_ty;
 
 	log_verbose!("Generating router for: [{}]", quote::quote! { #name }.to_string());
 
-	let config = parser::parse_controller_attributes(&attr, is_auto_controller);
+	let config = parser::parse_controller_attributes(&attr);
 
-	let route_registrations = generator::generate_route_registrations(&impl_block, &config);
+	let route_registrations = generator::generate_route_registrations(&impl_block);
 	let base_router = generator::generate_base_router(&route_registrations);
 
 	if route_registrations.is_empty() {

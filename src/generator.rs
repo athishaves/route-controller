@@ -7,7 +7,7 @@ use syn::{ImplItem, ItemImpl, Path, Type};
 #[allow(unused_imports)]
 use crate::logger::log_verbose;
 
-pub fn generate_route_registrations(impl_block: &ItemImpl, config: &crate::parser::ControllerConfig) -> Vec<TokenStream> {
+pub fn generate_route_registrations(impl_block: &ItemImpl) -> Vec<TokenStream> {
 	let mut route_registrations = vec![];
 
 	for item in &impl_block.items {
@@ -20,9 +20,9 @@ pub fn generate_route_registrations(impl_block: &ItemImpl, config: &crate::parse
 				);
 				let route_path = &route_info.path;
 
-				// Analyze parameters to see if we need to generate a wrapper
-				let params = crate::parser::analyze_params(&method.sig, &route_info.content_type);
-				let needs_wrapper = config.is_auto_controller && params.iter().any(|p| p.needs_wrap);
+				// Analyze parameters with explicit extractors
+				let params = crate::parser::analyze_params(&method.sig, &route_info.extractors);
+				let needs_wrapper = params.iter().any(|p| p.extractor_type != crate::parser::ExtractorType::None);
 
 				if needs_wrapper {
 					// Generate a wrapper function that handles extraction
@@ -135,8 +135,8 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
 	for item in &impl_block.items {
 		if let syn::ImplItem::Fn(method) = item {
 			if let Some(route_info) = crate::parser::extract_route_from_attrs(&method.attrs) {
-				let params = crate::parser::analyze_params(&method.sig, &route_info.content_type);
-				let needs_wrapper = params.iter().any(|p| p.needs_wrap);
+				let params = crate::parser::analyze_params(&method.sig, &route_info.extractors);
+				let needs_wrapper = params.iter().any(|p| p.extractor_type != crate::parser::ExtractorType::None);
 
 				if needs_wrapper {
 					let handler_name = &method.sig.ident;
@@ -151,50 +151,82 @@ fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
 
 					let return_type = &method.sig.output;
 
+					// Group Path parameters for tuple extraction
+					let path_params: Vec<_> = params.iter()
+						.filter(|p| p.extractor_type == crate::parser::ExtractorType::Path)
+						.collect();
+
+					let has_multiple_paths = path_params.len() > 1;
+
 					// Build wrapper parameters
-					let wrapper_params: Vec<TokenStream> = params.iter().map(|p| {
+					let mut wrapper_params = Vec::new();
+					let mut call_args = Vec::new();
+
+					// Handle Path extractors (must be first and combined into tuple if multiple)
+					if !path_params.is_empty() {
+						if has_multiple_paths {
+							// Multiple paths: extract as tuple
+							let path_types: Vec<_> = path_params.iter().map(|p| &p.ty).collect();
+							let path_names: Vec<_> = path_params.iter()
+								.filter_map(|p| {
+									if let syn::Pat::Ident(pat_ident) = &p.pat {
+										Some(&pat_ident.ident)
+									} else {
+										None
+									}
+								})
+								.collect();
+
+							wrapper_params.push(quote! {
+								axum::extract::Path((#(#path_names),*)): axum::extract::Path<(#(#path_types),*)>
+							});
+
+							// Add individual path args to call_args
+							for name in &path_names {
+								call_args.push(quote! { #name });
+							}
+						} else {
+							// Single path: extract normally
+							let p = path_params[0];
+							if let syn::Pat::Ident(pat_ident) = &p.pat {
+								let name = &pat_ident.ident;
+								let ty = &p.ty;
+								wrapper_params.push(quote! { axum::extract::Path(#name): axum::extract::Path<#ty> });
+								call_args.push(quote! { #name });
+							}
+						}
+					}
+
+					// Handle non-Path extractors
+					for p in params.iter() {
 						let pat = &p.pat;
 						let ty = &p.ty;
-						if p.needs_wrap {
-							// Extract the identifier from the pattern for wrapping
-							if let syn::Pat::Ident(pat_ident) = pat {
-								let name = &pat_ident.ident;
-								match p.extractor_type {
-									crate::parser::ExtractorType::Json => {
-										quote! { axum::Json(#name): axum::Json<#ty> }
-									}
-									crate::parser::ExtractorType::Form => {
-										quote! { axum::Form(#name): axum::Form<#ty> }
-									}
-									crate::parser::ExtractorType::None => {
-										quote! { #pat: #ty }
-									}
-								}
-							} else {
-								// For complex patterns, keep as is
-								quote! { #pat: #ty }
-							}
-						} else {
-							quote! { #pat: #ty }
-						}
-					}).collect();
 
-					// Build call arguments - extract the name/pattern for calling the original function
-					let call_args: Vec<TokenStream> = params.iter().map(|p| {
-						let pat = &p.pat;
-						if p.needs_wrap {
-							// For wrapped params, just pass the unwrapped value
-							if let syn::Pat::Ident(pat_ident) = pat {
-								let name = &pat_ident.ident;
-								quote! { #name }
-							} else {
-								quote! { #pat }
+						match &p.extractor_type {
+							crate::parser::ExtractorType::Path => {
+								// Already handled above
+								continue;
 							}
-						} else {
-							// For extractors, pass the full pattern
-							quote! { #pat }
+							crate::parser::ExtractorType::Json => {
+								if let syn::Pat::Ident(pat_ident) = pat {
+									let name = &pat_ident.ident;
+									wrapper_params.push(quote! { axum::Json(#name): axum::Json<#ty> });
+									call_args.push(quote! { #name });
+								}
+							}
+							crate::parser::ExtractorType::Query => {
+								if let syn::Pat::Ident(pat_ident) = pat {
+									let name = &pat_ident.ident;
+									wrapper_params.push(quote! { axum::extract::Query(#name): axum::extract::Query<#ty> });
+									call_args.push(quote! { #name });
+								}
+							}
+							crate::parser::ExtractorType::None => {
+								wrapper_params.push(quote! { #pat: #ty });
+								call_args.push(quote! { #pat });
+							}
 						}
-					}).collect();
+					}
 
 					wrappers.push(quote! {
 						#async_token fn #wrapper_name(#(#wrapper_params),*) #return_type {

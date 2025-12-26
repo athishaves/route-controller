@@ -2,18 +2,11 @@
 //!
 //! Generate Axum routers from controller-style implementations.
 //!
-//! ## Controllers
-//!
-//! Two types of controllers are available:
-//!
-//! - `#[controller]` - Standard controller (requires explicit extractors like `Json<T>`, `Form<T>`)
-//! - `#[auto_controller]` - Auto controller (automatically wraps plain types with `Json<T>` or `Form<T>`)
-//!
-//! ## Standard Controller Example
+//! ## Controller Example
 //!
 //! ```ignore
-//! use route_controller::{controller, post};
-//! use axum::Json;
+//! use route_controller::{controller, post, get};
+//! use serde::Deserialize;
 //!
 //! #[derive(Deserialize)]
 //! struct User {
@@ -22,35 +15,16 @@
 //!
 //! #[controller(path = "/users")]
 //! impl UserController {
-//!     #[post("/")]
-//!     async fn create(Json(user): Json<User>) -> String {
-//!         format!("Created: {}", user.name)
-//!     }
-//! }
-//! ```
-//!
-//! ## Auto Controller Example
-//!
-//! ```ignore
-//! use route_controller::{auto_controller, post};
-//!
-//! #[derive(Deserialize)]
-//! struct User {
-//!     name: String,
-//! }
-//!
-//! #[auto_controller(path = "/users")]
-//! impl UserController {
-//!     // Plain types automatically wrapped with Json<T> by default
-//!     #[post("/")]
+//!     // Specify extractors explicitly
+//!     #[post("/", extract(user = Json))]
 //!     async fn create(user: User) -> String {
 //!         format!("Created: {}", user.name)
 //!     }
-//!
-//!     // Use content_type = "form" for form data
-//!     #[post("/register", content_type = "form")]
-//!     async fn register(user: User) -> String {
-//!         format!("Registered: {}", user.name)
+//!     
+//!     // Multiple extractors
+//!     #[get("/{id}", extract(id = Path, filters = Query))]
+//!     async fn get_user(id: u32, filters: SearchFilters) -> String {
+//!         format!("User: {}", id)
 //!     }
 //! }
 //! ```
@@ -65,12 +39,7 @@ mod parser;
 
 #[proc_macro_attribute]
 pub fn controller(attr: TokenStream, item: TokenStream) -> TokenStream {
-	controller::controller_impl(attr, item, false)
-}
-
-#[proc_macro_attribute]
-pub fn auto_controller(attr: TokenStream, item: TokenStream) -> TokenStream {
-	controller::controller_impl(attr, item, true)
+	controller::controller_impl(attr, item)
 }
 
 #[proc_macro_attribute]
