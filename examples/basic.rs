@@ -1,5 +1,5 @@
 use route_controller::{auto_controller, get, post};
-use axum::{extract::Path, Json};
+use axum::{extract::{Path, Query}, Json};
 use serde::{Deserialize, Serialize};
 
 // Deserialize: Required for auto_controller to wrap input parameters with Json<T>
@@ -8,6 +8,12 @@ use serde::{Deserialize, Serialize};
 struct User {
 	name: String,
 	email: String,
+}
+
+#[derive(Deserialize)]
+struct UserQuery {
+	id: u32,
+	_name: Option<String>,
 }
 
 struct UserController;
@@ -31,6 +37,15 @@ impl UserController {
 	#[post]
 	async fn create(user: User) -> String {
 		format!("Created user: {} ({})", user.name, user.email)
+	}
+
+	#[get("/info")]
+	async fn get_user_info(Query(params): Query<UserQuery>) -> Json<User> {
+		let dummy_user = User {
+			name: format!("User{}", params.id),
+			email: format!("user{}@example.com", params.id),
+		};
+		Json(dummy_user)
 	}
 }
 
