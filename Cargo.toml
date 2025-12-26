@@ -37,5 +37,3 @@ tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tower = { version = "0.5", features = ["util"] }
-syn = { version = "2.0", features = ["full"] }
-quote = "1.0"
