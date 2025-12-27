@@ -1,6 +1,7 @@
 //! Controller configuration parsing
 
 use proc_macro::TokenStream;
+use proc_macro_error::{emit_call_site_error, emit_call_site_warning};
 use syn::Path;
 
 pub struct ControllerConfig {
@@ -27,20 +28,41 @@ pub fn parse_controller_attributes(attr: &TokenStream) -> ControllerConfig {
       let parts: Vec<&str> = arg.split("=").collect();
       if parts.len() == 2 {
         let mut value = parts[1].trim().replace("\"", "");
+        if value.is_empty() {
+          emit_call_site_warning!("Empty path value in controller attribute");
+        }
         if !value.starts_with('/') {
           value = format!("/{}", value);
         }
-        route_prefix = Some(value);
-        log_verbose!("Parsed route prefix: [{}]", route_prefix.as_ref().unwrap());
+        route_prefix = Some(value.clone());
+        log_verbose!("Parsed route prefix: [{}]", value);
+      } else {
+        emit_call_site_error!("Invalid path attribute format. Expected: path = \"/route\"");
       }
     } else if arg.starts_with("middleware") {
       let parts: Vec<&str> = arg.split("=").collect();
       if parts.len() == 2 {
         let value = parts[1].trim();
-        if let Ok(middleware_path) = syn::parse_str::<Path>(value) {
-          log_verbose!("Parsed middleware: [{}]", value);
-          middlewares.push(middleware_path);
+        if value.is_empty() {
+          emit_call_site_error!("Empty middleware value in controller attribute");
+          continue;
         }
+        match syn::parse_str::<Path>(value) {
+          Ok(middleware_path) => {
+            log_verbose!("Parsed middleware: [{}]", value);
+            middlewares.push(middleware_path);
+          }
+          Err(_) => {
+            emit_call_site_error!(
+              "Invalid middleware path '{}'. Expected a valid Rust path (e.g., my_middleware or module::middleware)",
+              value
+            );
+          }
+        }
+      } else {
+        emit_call_site_error!(
+          "Invalid middleware attribute format. Expected: middleware = my_middleware"
+        );
       }
     }
   }
@@ -57,23 +79,39 @@ pub fn parse_controller_attributes(attr: &TokenStream) -> ControllerConfig {
         if let Some(eq_pos) = header_content.find('=') {
           let header_name = header_content[..eq_pos].trim().replace('"', "");
           let header_value = header_content[eq_pos + 1..].trim().replace('"', "");
-          response_headers.push((header_name, header_value));
+          if header_name.is_empty() || header_value.is_empty() {
+            emit_call_site_warning!("Empty header name or value in controller header attribute");
+          }
+          response_headers.push((header_name.clone(), header_value.clone()));
+          log_verbose!(
+            "Parsed controller header: [{}: {}]",
+            header_name,
+            header_value
+          );
         } else {
           // Try parsing as tuple: ("name", "value")
           let parts: Vec<&str> = header_content.split(',').collect();
           if parts.len() == 2 {
             let header_name = parts[0].trim().replace('"', "");
             let header_value = parts[1].trim().replace('"', "");
-            response_headers.push((header_name, header_value));
+            if header_name.is_empty() || header_value.is_empty() {
+              emit_call_site_warning!("Empty header name or value in controller header attribute");
+            }
+            response_headers.push((header_name.clone(), header_value.clone()));
+            log_verbose!(
+              "Parsed controller header: [{}: {}]",
+              header_name,
+              header_value
+            );
+          } else {
+            emit_call_site_warning!(
+              "Invalid header attribute format in controller. Expected: header(\"name\", \"value\") or header(name = \"value\")"
+            );
           }
         }
-        log_verbose!(
-          "Parsed controller header: [{}: {}]",
-          response_headers.last().unwrap().0,
-          response_headers.last().unwrap().1
-        );
         search_pos = paren_start + paren_end + 1;
       } else {
+        emit_call_site_warning!("Unclosed parenthesis in header attribute");
         break;
       }
     } else {
@@ -87,11 +125,14 @@ pub fn parse_controller_attributes(attr: &TokenStream) -> ControllerConfig {
       let paren_start = ct_start + paren_start + 1;
       if let Some(paren_end) = attr_str[paren_start..].find(')') {
         let ct_content = &attr_str[paren_start..paren_start + paren_end];
-        content_type = Some(ct_content.trim().replace('"', ""));
-        log_verbose!(
-          "Parsed controller content_type: [{}]",
-          content_type.as_ref().unwrap()
-        );
+        let ct_value = ct_content.trim().replace('"', "");
+        if ct_value.is_empty() {
+          emit_call_site_warning!("Empty content_type value in controller attribute");
+        }
+        content_type = Some(ct_value.clone());
+        log_verbose!("Parsed controller content_type: [{}]", ct_value);
+      } else {
+        emit_call_site_warning!("Unclosed parenthesis in content_type attribute");
       }
     }
   }

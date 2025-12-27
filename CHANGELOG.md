@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Route-level headers override controller-level headers with the same name
   - Enables consistent API versioning and common headers across all endpoints
   - Example: `#[controller(path = "/api", header("x-api-version", "1.0"))]`
+- **Compile-Time Validation**: Integrated `proc_macro_error` for error checking
+  - Validates extractor types at compile time with helpful error messages
 
 ### Changed
 
