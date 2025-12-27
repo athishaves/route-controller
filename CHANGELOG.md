@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-12-27
+
 ### Breaking Changes
 
 - **HTTP Method Attributes**: Changed from `#[route("GET", "/path")]` to dedicated attributes like `#[get("/path")]`, `#[post]`, `#[put]`, `#[delete]`, `#[patch]`, `#[head]`, `#[options]`, `#[trace]`
@@ -48,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Path parameter extraction now order-independent in `extract()` attribute
 
-## [0.1.0] - 2024-12-27
+## [0.1.0] - 2025-01-09
 
 ### Added
 
