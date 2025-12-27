@@ -8,6 +8,36 @@
 
 Generate Axum routers from controller-style implementations with declarative extractors
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+  - [Path Parameter Syntax](#path-parameter-syntax)
+  - [Optional Dependencies](#optional-dependencies)
+- [Quick Start](#quick-start)
+- [Controller Types](#controller-types)
+  - [The `extract()` Attribute](#the-extract-attribute)
+  - [Available Extractors](#available-extractors)
+    - [Request Body Extractors](#request-body-extractors)
+    - [URL Extractors](#url-extractors)
+    - [Other Extractors](#other-extractors)
+  - [Feature-Gated Extractors](#feature-gated-extractors)
+- [Using State](#using-state)
+- [Body Extractor Examples](#body-extractor-examples)
+  - [Form Data](#form-data)
+  - [Binary Data](#binary-data)
+  - [Text Content Types](#text-content-types)
+- [Response Headers](#response-headers)
+  - [Controller-Level Headers](#controller-level-headers)
+  - [Route-Level Headers](#route-level-headers)
+  - [Multiple Headers](#multiple-headers)
+  - [Content-Type Header](#content-type-header)
+  - [Combining Controller and Route Headers](#combining-controller-and-route-headers)
+- [Examples](#examples)
+  - [With Middleware](#with-middleware)
+- [Verbose Logging](#verbose-logging)
+- [License](#license)
+
 ## Features
 
 - Clean controller-style API similar to Routing Controller (JS) or Rocket
