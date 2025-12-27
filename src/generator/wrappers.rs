@@ -210,14 +210,17 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
 
           // Add parameters in the correct order for axum
           wrapper_params.extend(state_params);
-          wrapper_params.extend(request_parts_params.iter().map(|s| {
-            match s {
-              &"HeaderParam" => quote! { headers: axum::http::HeaderMap },
-              &"CookieParam" => quote! { cookies: axum_extra::extract::CookieJar },
-              &"SessionParam" => quote! { mut session: tower_sessions::Session },
-              _ => quote! {}
-            }
-          }).into_iter());
+          wrapper_params.extend(
+            request_parts_params
+              .iter()
+              .map(|s| match s {
+                &"HeaderParam" => quote! { headers: axum::http::HeaderMap },
+                &"CookieParam" => quote! { cookies: axum_extra::extract::CookieJar },
+                &"SessionParam" => quote! { mut session: tower_sessions::Session },
+                _ => quote! {},
+              })
+              .into_iter(),
+          );
           wrapper_params.extend(body_params);
           wrapper_params.extend(other_params);
 
