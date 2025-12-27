@@ -1,40 +1,38 @@
-# Bug Report
-
 ---
-Name: Bug report
-
-About: Create a report to help us improve
-
-Title: '[BUG] '
-
-Labels: bug
+name: Bug report
+about: Create a report to help us improve
+title: ''
+labels: ''
+assignees: ''
 
 ---
 
-## Describe the bug
+**Describe the bug**
+A clear and concise description of what the bug is.
 
-A clear and concise description of what the bug is
+**To Reproduce**
+Steps to reproduce the behavior:
+1. Go to '...'
+2. Click on '....'
+3. Scroll down to '....'
+4. See error
 
-## To Reproduce
+**Expected behavior**
+A clear and concise description of what you expected to happen.
 
-Steps to reproduce the behavior
+**Screenshots**
+If applicable, add screenshots to help explain your problem.
 
-## Expected behavior
+**Desktop (please complete the following information):**
+ - OS: [e.g. iOS]
+ - Browser [e.g. chrome, safari]
+ - Version [e.g. 22]
 
-A clear and concise description of what you expected to happen
+**Smartphone (please complete the following information):**
+ - Device: [e.g. iPhone6]
+ - OS: [e.g. iOS8.1]
+ - Browser [e.g. stock browser, safari]
+ - Version [e.g. 22]
 
-## Code Example
-
-```rust
-// Minimal reproducible example
-```
-
-## Environment
-
-- Rust version: [e.g. 1.75.0]
-- route_controller version: [e.g. 0.2.0]
-- Axum version: [e.g. 0.8.0]
-
-## Additional context
-
+**Additional context**
 Add any other context about the problem here.
