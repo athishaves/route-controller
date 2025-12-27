@@ -24,7 +24,11 @@ impl ApiController {
   }
 
   // Multiple custom headers
-  #[get("/multi", header("x-api-version", "1.0"), header("x-request-id", "abc-123"))]
+  #[get(
+    "/multi",
+    header("x-api-version", "1.0"),
+    header("x-request-id", "abc-123")
+  )]
   async fn multi_headers() -> &'static str {
     "Response with multiple headers"
   }
@@ -36,7 +40,11 @@ impl ApiController {
   }
 
   // Content type with custom headers
-  #[post("/data", content_type("application/json"), header("x-api-version", "2.0"))]
+  #[post(
+    "/data",
+    content_type("application/json"),
+    header("x-api-version", "2.0")
+  )]
   async fn data_with_headers() -> axum::Json<ApiResponse> {
     axum::Json(ApiResponse {
       message: "Data with content type and headers".to_string(),

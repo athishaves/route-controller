@@ -25,10 +25,7 @@ impl HeaderResponseController {
     "ok"
   }
 
-  #[get(
-    "/content",
-    content_type("application/custom")
-  )]
+  #[get("/content", content_type("application/custom"))]
   async fn custom_content_type() -> &'static str {
     "ok"
   }
@@ -42,10 +39,7 @@ impl HeaderResponseController {
     "ok"
   }
 
-  #[get(
-    "/cache",
-    header("x-cache-ttl", "3600")
-  )]
+  #[get("/cache", header("x-cache-ttl", "3600"))]
   async fn cache_control() -> &'static str {
     "ok"
   }
@@ -75,10 +69,7 @@ async fn test_single_custom_header() {
     .unwrap();
 
   assert_eq!(response.status(), StatusCode::OK);
-  assert_eq!(
-    response.headers().get("x-custom").unwrap(),
-    "value"
-  );
+  assert_eq!(response.headers().get("x-custom").unwrap(), "value");
 }
 
 #[tokio::test]
@@ -96,14 +87,8 @@ async fn test_multiple_custom_headers() {
     .unwrap();
 
   assert_eq!(response.status(), StatusCode::OK);
-  assert_eq!(
-    response.headers().get("x-custom-1").unwrap(),
-    "value1"
-  );
-  assert_eq!(
-    response.headers().get("x-custom-2").unwrap(),
-    "value2"
-  );
+  assert_eq!(response.headers().get("x-custom-1").unwrap(), "value1");
+  assert_eq!(response.headers().get("x-custom-2").unwrap(), "value2");
 }
 
 #[tokio::test]
@@ -144,8 +129,8 @@ async fn test_cors_headers() {
   assert_eq!(response.status(), StatusCode::OK);
   // Check that at least one of the custom headers is present
   assert!(
-    response.headers().get("x-cors-origin").is_some() ||
-    response.headers().get("x-cors-methods").is_some()
+    response.headers().get("x-cors-origin").is_some()
+      || response.headers().get("x-cors-methods").is_some()
   );
 }
 
@@ -164,10 +149,7 @@ async fn test_cache_control() {
     .unwrap();
 
   assert_eq!(response.status(), StatusCode::OK);
-  assert_eq!(
-    response.headers().get("x-cache-ttl").unwrap(),
-    "3600"
-  );
+  assert_eq!(response.headers().get("x-cache-ttl").unwrap(), "3600");
 }
 
 #[tokio::test]
@@ -185,10 +167,7 @@ async fn test_headers_with_extractor() {
     .unwrap();
 
   assert_eq!(response.status(), StatusCode::OK);
-  assert_eq!(
-    response.headers().get("x-user-id").unwrap(),
-    "extracted"
-  );
+  assert_eq!(response.headers().get("x-user-id").unwrap(), "extracted");
   let body = axum::body::to_bytes(response.into_body(), usize::MAX)
     .await
     .unwrap();

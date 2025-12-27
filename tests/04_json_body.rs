@@ -42,7 +42,10 @@ impl JsonController {
 
   #[post("/nested", extract(data = Json))]
   async fn nested_data(data: NestedData) -> String {
-    format!("User: {}, Version: {}", data.user.name, data.metadata.version)
+    format!(
+      "User: {}, Version: {}",
+      data.user.name, data.metadata.version
+    )
   }
 }
 

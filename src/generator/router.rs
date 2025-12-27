@@ -23,7 +23,8 @@ pub fn generate_route_registrations(impl_block: &ItemImpl) -> Vec<TokenStream> {
           .iter()
           .any(|p| p.extractor_type != crate::parser::ExtractorType::None);
 
-        let has_response_headers = !route_info.response_headers.is_empty() || route_info.content_type.is_some();
+        let has_response_headers =
+          !route_info.response_headers.is_empty() || route_info.content_type.is_some();
 
         if needs_wrapper || has_response_headers {
           // Generate a wrapper function that handles extraction

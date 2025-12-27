@@ -18,7 +18,10 @@ struct AuthController;
 impl AuthController {
   #[post("/login", extract(form = Form))]
   async fn login(form: LoginForm) -> String {
-    format!("Login attempt: username={}, password={}", form.username, form.password)
+    format!(
+      "Login attempt: username={}, password={}",
+      form.username, form.password
+    )
   }
 }
 

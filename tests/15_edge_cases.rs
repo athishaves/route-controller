@@ -121,12 +121,7 @@ async fn test_root_path() {
   let app = EdgeCaseController::router();
 
   let response = app
-    .oneshot(
-      Request::builder()
-        .uri("/api")
-        .body(Body::empty())
-        .unwrap(),
-    )
+    .oneshot(Request::builder().uri("/api").body(Body::empty()).unwrap())
     .await
     .unwrap();
 
@@ -345,12 +340,7 @@ async fn test_extremely_long_query() {
   let uri = format!("/api/long-query?data={}", long_string);
 
   let response = app
-    .oneshot(
-      Request::builder()
-        .uri(&uri)
-        .body(Body::empty())
-        .unwrap(),
-    )
+    .oneshot(Request::builder().uri(&uri).body(Body::empty()).unwrap())
     .await
     .unwrap();
 

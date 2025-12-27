@@ -15,7 +15,8 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
           .iter()
           .any(|p| p.extractor_type != crate::parser::ExtractorType::None);
 
-        let has_response_headers = !route_info.response_headers.is_empty() || route_info.content_type.is_some();
+        let has_response_headers =
+          !route_info.response_headers.is_empty() || route_info.content_type.is_some();
 
         if needs_wrapper || has_response_headers {
           let handler_name = &method.sig.ident;
@@ -39,7 +40,8 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
           let return_type = &method.sig.output;
 
           // Determine if we need to wrap the return type with headers
-          let needs_header_wrapping = !route_info.response_headers.is_empty() || route_info.content_type.is_some();
+          let needs_header_wrapping =
+            !route_info.response_headers.is_empty() || route_info.content_type.is_some();
 
           let wrapper_return_type = if needs_header_wrapping {
             quote! { -> impl axum::response::IntoResponse }
@@ -48,7 +50,9 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
           };
 
           // Check if this handler uses State and get the state type
-          let uses_state = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::State);
+          let uses_state = params
+            .iter()
+            .any(|p| p.extractor_type == crate::parser::ExtractorType::State);
           let state_type = if uses_state {
             params
               .iter()
@@ -71,10 +75,18 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
           let mut call_args = Vec::new();
 
           // Track if we need shared extractors
-          let has_headers = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::HeaderParam);
-          let has_cookies = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::CookieParam);
-          let has_session = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::SessionParam);
-          let has_state = params.iter().any(|p| p.extractor_type == crate::parser::ExtractorType::State);
+          let has_headers = params
+            .iter()
+            .any(|p| p.extractor_type == crate::parser::ExtractorType::HeaderParam);
+          let has_cookies = params
+            .iter()
+            .any(|p| p.extractor_type == crate::parser::ExtractorType::CookieParam);
+          let has_session = params
+            .iter()
+            .any(|p| p.extractor_type == crate::parser::ExtractorType::SessionParam);
+          let has_state = params
+            .iter()
+            .any(|p| p.extractor_type == crate::parser::ExtractorType::State);
 
           // Handle Path extractors (must be first and combined into tuple if multiple)
           if !path_params.is_empty() {
@@ -239,9 +251,13 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
           };
 
           // Build header additions
-          let header_additions: Vec<_> = route_info.response_headers.iter().map(|(name, value)| {
-            quote! { (axum::http::header::HeaderName::from_static(#name), #value) }
-          }).collect();
+          let header_additions: Vec<_> = route_info
+            .response_headers
+            .iter()
+            .map(|(name, value)| {
+              quote! { (axum::http::header::HeaderName::from_static(#name), #value) }
+            })
+            .collect();
 
           let wrapper_body = if let Some(ref ct) = route_info.content_type {
             if !header_additions.is_empty() {

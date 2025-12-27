@@ -31,7 +31,9 @@ async fn main() {
   println!("🚀 Server running on http://127.0.0.1:3000");
   println!("\nTry:");
   println!("  curl http://localhost:3000/api/protected -H 'authorization: Bearer token123'");
-  println!("  curl http://localhost:3000/api/info -H 'authorization: Bearer token123' -H 'user-agent: MyApp/1.0'");
+  println!(
+    "  curl http://localhost:3000/api/info -H 'authorization: Bearer token123' -H 'user-agent: MyApp/1.0'"
+  );
 
   axum::serve(listener, app).await.unwrap();
 }

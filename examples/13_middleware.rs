@@ -3,11 +3,7 @@
 //! Run: cargo run --example 13_middleware
 //! Test: curl http://localhost:3000/api/hello
 
-use axum::{
-  extract::Request,
-  middleware::Next,
-  response::Response,
-};
+use axum::{extract::Request, middleware::Next, response::Response};
 use route_controller::{controller, get};
 
 // Simple logging middleware

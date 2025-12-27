@@ -23,13 +23,13 @@ pub fn apply_middlewares(base_router: TokenStream, middlewares: &[Path]) -> Toke
   let middlewares_reversed: Vec<_> = middlewares.iter().rev().collect();
 
   quote! {
-      {
-          let router = #base_router;
-          #(
-          let router = router.layer(axum::middleware::from_fn(#middlewares_reversed));
-          )*
-          router
-      }
+    {
+      let router = #base_router;
+      #(
+      let router = router.layer(axum::middleware::from_fn(#middlewares_reversed));
+      )*
+      router
+    }
   }
 }
 
@@ -37,7 +37,7 @@ pub fn apply_route_prefix(router: TokenStream, prefix: Option<&String>) -> Token
   if let Some(prefix) = prefix {
     log_verbose!("Adding route prefix: [{}]", prefix);
     quote! {
-        axum::Router::new().nest(#prefix, #router)
+      axum::Router::new().nest(#prefix, #router)
     }
   } else {
     log_verbose!("No route prefix to apply");

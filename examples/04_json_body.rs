@@ -38,8 +38,12 @@ async fn main() {
 
   println!("🚀 Server running on http://127.0.0.1:3000");
   println!("\nTry:");
-  println!("  curl -X POST http://localhost:3000/users -H 'Content-Type: application/json' -d '{{\"name\":\"Alice\",\"email\":\"alice@example.com\"}}'");
-  println!("  curl -X PUT http://localhost:3000/users/1 -H 'Content-Type: application/json' -d '{{\"name\":\"Bob\",\"email\":\"bob@example.com\"}}'");
+  println!(
+    "  curl -X POST http://localhost:3000/users -H 'Content-Type: application/json' -d '{{\"name\":\"Alice\",\"email\":\"alice@example.com\"}}'"
+  );
+  println!(
+    "  curl -X PUT http://localhost:3000/users/1 -H 'Content-Type: application/json' -d '{{\"name\":\"Bob\",\"email\":\"bob@example.com\"}}'"
+  );
 
   axum::serve(listener, app).await.unwrap();
 }

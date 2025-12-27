@@ -40,10 +40,18 @@ async fn main() {
 
   println!("🚀 Server running on http://127.0.0.1:3000");
   println!("\nTry:");
-  println!("  curl -X POST http://localhost:3000/text -H 'Content-Type: text/plain' -d 'Hello World'");
-  println!("  curl -X POST http://localhost:3000/html -H 'Content-Type: text/html' -d '<h1>Hello</h1>'");
-  println!("  curl -X POST http://localhost:3000/xml -H 'Content-Type: application/xml' -d '<root>data</root>'");
-  println!("  curl -X POST http://localhost:3000/script -H 'Content-Type: application/javascript' -d 'console.log(\"hi\");'");
+  println!(
+    "  curl -X POST http://localhost:3000/text -H 'Content-Type: text/plain' -d 'Hello World'"
+  );
+  println!(
+    "  curl -X POST http://localhost:3000/html -H 'Content-Type: text/html' -d '<h1>Hello</h1>'"
+  );
+  println!(
+    "  curl -X POST http://localhost:3000/xml -H 'Content-Type: application/xml' -d '<root>data</root>'"
+  );
+  println!(
+    "  curl -X POST http://localhost:3000/script -H 'Content-Type: application/javascript' -d 'console.log(\"hi\");'"
+  );
 
   axum::serve(listener, app).await.unwrap();
 }

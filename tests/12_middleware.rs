@@ -6,7 +6,9 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
-use route_controller::{controller, get};use serde::Deserialize;use tower::ServiceExt;
+use route_controller::{controller, get};
+use serde::Deserialize;
+use tower::ServiceExt;
 
 struct MiddlewareController;
 

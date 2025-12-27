@@ -50,7 +50,9 @@ async fn main() {
   println!("🚀 Server running on http://127.0.0.1:3000");
   println!("\nTry:");
   println!("  curl 'http://localhost:3000/users/42?sort=name&limit=5'");
-  println!("  curl -X PUT http://localhost:3000/users/42 -H 'Content-Type: application/json' -d '{{\"name\":\"Alice\"}}'");
+  println!(
+    "  curl -X PUT http://localhost:3000/users/42 -H 'Content-Type: application/json' -d '{{\"name\":\"Alice\"}}'"
+  );
 
   axum::serve(listener, app).await.unwrap();
 }
