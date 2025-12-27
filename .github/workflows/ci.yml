@@ -10,28 +10,67 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
-    name: Test, Lint, and Format
+  # Job 1: Formatting
+  fmt:
+    name: Formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
-
+          components: rustfmt
       - name: Check Formatting
         run: cargo fmt --all -- --check
 
+  # Job 2: Lint
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+      - name: Run Clippy
+        run: cargo clippy --all-features -- -D warnings
+
+  # Job 3: Documentation
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+      - name: Check Documentation
+        run: cargo doc --all-features --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  # Job 4: Build & Test
+  test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable, beta, nightly]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+      - name: Check Cargo.lock
+        run: cargo update --workspace --locked
       - name: Build
         run: cargo build --verbose --all-features
-
-      - name: Build Examples
-        run: cargo build --examples --all-features
-
       - name: Run Tests
         run: cargo test --verbose --all-features
-
-      - name: Clippy
-        run: cargo clippy --all-features -- -D warnings
