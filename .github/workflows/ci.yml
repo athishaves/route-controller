@@ -1,0 +1,37 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test, Lint, and Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check Formatting
+        run: cargo fmt --all -- --check
+
+      - name: Build
+        run: cargo build --verbose --all-features
+
+      - name: Build Examples
+        run: cargo build --examples --all-features
+
+      - name: Run Tests
+        run: cargo test --verbose --all-features
+
+      - name: Clippy
+        run: cargo clippy --all-features -- -D warnings

@@ -1,6 +1,12 @@
 # route_controller
 
-Generate Axum routers from controller-style implementations with declarative extractors.
+![CI Status](https://github.com/athishaves/route-controller/actions/workflows/ci.yml/badge.svg)
+![Crates.io](https://img.shields.io/crates/v/route_controller)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Rust Version](https://img.shields.io/badge/rust-1.75%2B-orange)
+![Downloads](https://img.shields.io/crates/d/route_controller)
+
+Generate Axum routers from controller-style implementations with declarative extractors
 
 ## Features
 

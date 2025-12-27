@@ -28,7 +28,6 @@ quote = "1.0"
 proc-macro2 = "1.0"
 
 [dev-dependencies]
-# Users must have axum >= 0.8
 axum = "0.8.8"
 axum-extra = { version = "0.12", features = ["cookie"] }
 tower-sessions = "0.14"
