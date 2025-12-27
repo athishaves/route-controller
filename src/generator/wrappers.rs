@@ -1,5 +1,4 @@
 //! Wrapper function generation for route handlers
-
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::ItemImpl;
@@ -69,9 +68,21 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
           };
 
           // Build wrapper parameters
-          let mut wrapper_param_set = std::collections::HashSet::new();
+          // Axum requires extractors in a specific order:
+          // 1. Path extractors
+          // 2. State extractors
+          // 3. Request parts that don't consume body (HeaderMap, CookieJar, Session)
+          // 4. Body/Data extractors that consume the request body (Json, Form, Query, Bytes, String)
+
           let mut wrapper_params = Vec::new();
           let mut call_args = Vec::new();
+
+          // Store params for proper ordering
+          let mut state_params = Vec::new();
+          // HeaderMap, CookieJar, Session
+          let mut request_parts_params = std::collections::HashSet::new();
+          let mut body_params = Vec::new();
+          let mut other_params = Vec::new();
 
           // Handle Path extractors (must be first and combined into tuple if multiple)
           if !path_types.is_empty() {
@@ -94,7 +105,7 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
             }
           }
 
-          // Handle non-Path extractors
+          // Collect extractors by category
           for p in params.iter() {
             let pat = &p.pat;
             let ty = &p.ty;
@@ -103,44 +114,11 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
               crate::parser::ExtractorType::Path => {
                 // Already handled above
               }
-              crate::parser::ExtractorType::Json => {
-                if let syn::Pat::Ident(pat_ident) = pat {
-                  let name = &pat_ident.ident;
-                  wrapper_params.push(quote! { axum::Json(#name): axum::Json<#ty> });
-                  call_args.push(quote! { #name });
-                }
-              }
-              crate::parser::ExtractorType::Form => {
-                if let syn::Pat::Ident(pat_ident) = pat {
-                  let name = &pat_ident.ident;
-                  wrapper_params.push(quote! { axum::Form(#name): axum::Form<#ty> });
-                  call_args.push(quote! { #name });
-                }
-              }
-              crate::parser::ExtractorType::Query => {
-                if let syn::Pat::Ident(pat_ident) = pat {
-                  let name = &pat_ident.ident;
-                  wrapper_params
-                    .push(quote! { axum::extract::Query(#name): axum::extract::Query<#ty> });
-                  call_args.push(quote! { #name });
-                }
-              }
-              crate::parser::ExtractorType::Bytes => {
-                if let syn::Pat::Ident(pat_ident) = pat {
-                  let name = &pat_ident.ident;
-                  wrapper_params.push(quote! { #name: axum::body::Bytes });
-                  call_args.push(quote! { #name.to_vec() });
-                }
-              }
-              crate::parser::ExtractorType::Text
-              | crate::parser::ExtractorType::Html
-              | crate::parser::ExtractorType::Xml
-              | crate::parser::ExtractorType::JavaScript => {
-                if let syn::Pat::Ident(pat_ident) = pat {
-                  let name = &pat_ident.ident;
-                  wrapper_params.push(quote! { #name: String });
-                  call_args.push(quote! { #name });
-                }
+              crate::parser::ExtractorType::State => {
+                // Extract state and pass it through
+                call_args.push(quote! { state.0.clone() });
+                let state_ty = &p.ty;
+                state_params.push(quote! { state: axum::extract::State<#state_ty> });
               }
               crate::parser::ExtractorType::HeaderParam => {
                 if let syn::Pat::Ident(pat_ident) = pat {
@@ -154,9 +132,7 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
                       .unwrap_or("")
                       .to_string()
                   });
-                  if wrapper_param_set.insert("HeaderParam") {
-                    wrapper_params.push(quote! { headers: axum::http::HeaderMap });
-                  }
+                  request_parts_params.insert("HeaderParam");
                 }
               }
               crate::parser::ExtractorType::CookieParam => {
@@ -168,9 +144,7 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
                       .map(|c| c.value().to_string())
                       .unwrap_or_default()
                   });
-                  if wrapper_param_set.insert("CookieParam") {
-                    wrapper_params.push(quote! { cookies: axum_extra::extract::CookieJar });
-                  }
+                  request_parts_params.insert("CookieParam");
                 }
               }
               crate::parser::ExtractorType::SessionParam => {
@@ -185,24 +159,67 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
                       .flatten()
                       .unwrap_or_default()
                   });
-                  if wrapper_param_set.insert("SessionParam") {
-                    wrapper_params.push(quote! { session: tower_sessions::Session });
-                  }
+                  request_parts_params.insert("SessionParam");
                 }
               }
-              crate::parser::ExtractorType::State => {
-                // Extract state and pass it through
-                call_args.push(quote! { state.0.clone() });
-                // Only one state is allowed, no check for duplicates needed
-                let state_ty = &p.ty;
-                wrapper_params.push(quote! { state: axum::extract::State<#state_ty> });
+              crate::parser::ExtractorType::Json => {
+                if let syn::Pat::Ident(pat_ident) = pat {
+                  let name = &pat_ident.ident;
+                  body_params.push(quote! { axum::Json(#name): axum::Json<#ty> });
+                  call_args.push(quote! { #name });
+                }
+              }
+              crate::parser::ExtractorType::Form => {
+                if let syn::Pat::Ident(pat_ident) = pat {
+                  let name = &pat_ident.ident;
+                  body_params.push(quote! { axum::Form(#name): axum::Form<#ty> });
+                  call_args.push(quote! { #name });
+                }
+              }
+              crate::parser::ExtractorType::Query => {
+                if let syn::Pat::Ident(pat_ident) = pat {
+                  let name = &pat_ident.ident;
+                  body_params
+                    .push(quote! { axum::extract::Query(#name): axum::extract::Query<#ty> });
+                  call_args.push(quote! { #name });
+                }
+              }
+              crate::parser::ExtractorType::Bytes => {
+                if let syn::Pat::Ident(pat_ident) = pat {
+                  let name = &pat_ident.ident;
+                  body_params.push(quote! { #name: axum::body::Bytes });
+                  call_args.push(quote! { #name.to_vec() });
+                }
+              }
+              crate::parser::ExtractorType::Text
+              | crate::parser::ExtractorType::Html
+              | crate::parser::ExtractorType::Xml
+              | crate::parser::ExtractorType::JavaScript => {
+                if let syn::Pat::Ident(pat_ident) = pat {
+                  let name = &pat_ident.ident;
+                  body_params.push(quote! { #name: String });
+                  call_args.push(quote! { #name });
+                }
               }
               crate::parser::ExtractorType::None => {
-                wrapper_params.push(quote! { #pat: #ty });
+                other_params.push(quote! { #pat: #ty });
                 call_args.push(quote! { #pat });
               }
             }
           }
+
+          // Add parameters in the correct order for axum
+          wrapper_params.extend(state_params);
+          wrapper_params.extend(request_parts_params.iter().map(|s| {
+            match s {
+              &"HeaderParam" => quote! { headers: axum::http::HeaderMap },
+              &"CookieParam" => quote! { cookies: axum_extra::extract::CookieJar },
+              &"SessionParam" => quote! { mut session: tower_sessions::Session },
+              _ => quote! {}
+            }
+          }).into_iter());
+          wrapper_params.extend(body_params);
+          wrapper_params.extend(other_params);
 
           let wrapper_signature = quote! {
             #async_token fn #wrapper_name(#(#wrapper_params),*) #wrapper_return_type
