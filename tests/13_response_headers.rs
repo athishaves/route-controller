@@ -191,3 +191,265 @@ async fn test_header_values_preserved() {
   let header_value = response.headers().get("x-custom").unwrap();
   assert_eq!(header_value.to_str().unwrap(), "value");
 }
+
+// ============================================================================
+// Controller-level headers tests
+// ============================================================================
+
+struct ControllerHeaderController;
+
+#[controller(
+  path = "/ctrl",
+  header("x-api-version", "1.0"),
+  header("x-powered-by", "route-controller")
+)]
+impl ControllerHeaderController {
+  // Route inherits controller headers
+  #[get("/inherit")]
+  async fn inherit_headers() -> &'static str {
+    "inherited"
+  }
+
+  // Route overrides one controller header
+  #[get("/override", header("x-api-version", "2.0"))]
+  async fn override_header() -> &'static str {
+    "overridden"
+  }
+
+  // Route adds additional headers
+  #[get("/add", header("x-request-id", "abc-123"))]
+  async fn add_header() -> &'static str {
+    "added"
+  }
+
+  // Route overrides and adds
+  #[get("/mixed", header("x-api-version", "3.0"), header("x-custom", "test"))]
+  async fn mixed_headers() -> &'static str {
+    "mixed"
+  }
+}
+
+#[tokio::test]
+async fn test_controller_headers_inherited() {
+  let app = ControllerHeaderController::router();
+
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/ctrl/inherit")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+  assert_eq!(response.headers().get("x-api-version").unwrap(), "1.0");
+  assert_eq!(
+    response.headers().get("x-powered-by").unwrap(),
+    "route-controller"
+  );
+}
+
+#[tokio::test]
+async fn test_route_header_overrides_controller() {
+  let app = ControllerHeaderController::router();
+
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/ctrl/override")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+  // Route overrides x-api-version to 2.0
+  assert_eq!(response.headers().get("x-api-version").unwrap(), "2.0");
+  // Controller header x-powered-by is still present
+  assert_eq!(
+    response.headers().get("x-powered-by").unwrap(),
+    "route-controller"
+  );
+}
+
+#[tokio::test]
+async fn test_route_adds_to_controller_headers() {
+  let app = ControllerHeaderController::router();
+
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/ctrl/add")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+  // Controller headers are present
+  assert_eq!(response.headers().get("x-api-version").unwrap(), "1.0");
+  assert_eq!(
+    response.headers().get("x-powered-by").unwrap(),
+    "route-controller"
+  );
+  // Route-specific header is also present
+  assert_eq!(response.headers().get("x-request-id").unwrap(), "abc-123");
+}
+
+#[tokio::test]
+async fn test_mixed_controller_and_route_headers() {
+  let app = ControllerHeaderController::router();
+
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/ctrl/mixed")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+  // Route overrides x-api-version
+  assert_eq!(response.headers().get("x-api-version").unwrap(), "3.0");
+  // Controller header x-powered-by is still present
+  assert_eq!(
+    response.headers().get("x-powered-by").unwrap(),
+    "route-controller"
+  );
+  // Route-specific header is present
+  assert_eq!(response.headers().get("x-custom").unwrap(), "test");
+}
+
+// Test controller-level content_type
+struct ControllerContentTypeController;
+
+#[controller(path = "/ct", content_type("application/json"))]
+impl ControllerContentTypeController {
+  #[get("/default")]
+  async fn default_content_type() -> &'static str {
+    r#"{"status":"ok"}"#
+  }
+
+  #[get("/override", content_type("text/plain"))]
+  async fn override_content_type() -> &'static str {
+    "plain text"
+  }
+}
+
+#[tokio::test]
+async fn test_controller_content_type_inherited() {
+  let app = ControllerContentTypeController::router();
+
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/ct/default")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+  assert_eq!(
+    response.headers().get("content-type").unwrap(),
+    "application/json"
+  );
+}
+
+#[tokio::test]
+async fn test_route_content_type_overrides_controller() {
+  let app = ControllerContentTypeController::router();
+
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/ct/override")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+  assert_eq!(
+    response.headers().get("content-type").unwrap(),
+    "text/plain"
+  );
+}
+
+// Test controller with both headers and content_type
+struct ControllerFullFeaturesController;
+
+#[controller(
+  path = "/full",
+  header("x-api-version", "1.0"),
+  header("x-service", "api"),
+  content_type("application/json")
+)]
+impl ControllerFullFeaturesController {
+  #[get("/all")]
+  async fn all_features() -> &'static str {
+    r#"{"message":"all"}"#
+  }
+
+  #[get("/partial", header("x-api-version", "2.0"), content_type("text/plain"))]
+  async fn partial_override() -> &'static str {
+    "partial"
+  }
+}
+
+#[tokio::test]
+async fn test_controller_headers_and_content_type() {
+  let app = ControllerFullFeaturesController::router();
+
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/full/all")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+  assert_eq!(response.headers().get("x-api-version").unwrap(), "1.0");
+  assert_eq!(response.headers().get("x-service").unwrap(), "api");
+  assert_eq!(
+    response.headers().get("content-type").unwrap(),
+    "application/json"
+  );
+}
+
+#[tokio::test]
+async fn test_route_overrides_controller_headers_and_content_type() {
+  let app = ControllerFullFeaturesController::router();
+
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/full/partial")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+  // Route overrides x-api-version
+  assert_eq!(response.headers().get("x-api-version").unwrap(), "2.0");
+  // Controller header x-service is still present
+  assert_eq!(response.headers().get("x-service").unwrap(), "api");
+  // Route overrides content-type
+  assert_eq!(
+    response.headers().get("content-type").unwrap(),
+    "text/plain"
+  );
+}

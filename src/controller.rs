@@ -17,7 +17,7 @@ pub fn controller_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
 
   let config = parser::parse_controller_attributes(&attr);
 
-  let route_registrations = generator::generate_route_registrations(&impl_block);
+  let route_registrations = generator::generate_route_registrations(&impl_block, &config);
   let base_router = generator::generate_base_router(&route_registrations);
 
   if route_registrations.is_empty() {
@@ -26,6 +26,7 @@ pub fn controller_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
       &impl_block,
       name,
       base_router,
+      &config,
     ));
   }
 
@@ -37,5 +38,6 @@ pub fn controller_impl(attr: TokenStream, item: TokenStream) -> TokenStream {
     &impl_block,
     name,
     final_router,
+    &config,
   ))
 }

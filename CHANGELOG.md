@@ -7,8 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2025-12-27
-
 ### Breaking Changes
 
 - **HTTP Method Attributes**: Changed from `#[route("GET", "/path")]` to dedicated attributes like `#[get("/path")]`, `#[post]`, `#[put]`, `#[delete]`, `#[patch]`, `#[head]`, `#[options]`, `#[trace]`
@@ -32,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Multiple Middlewares**: Support for applying multiple middleware functions per controller
 - **Comprehensive Examples**: 15 working examples covering all features
 - **Verbose Logging**: `ROUTE_CONTROLLER_VERBOSE` environment variable for compilation debugging
+- **Controller-Level Headers**: Apply `header()` and `content_type()` attributes at the controller level
+  - Headers defined on the controller apply to all routes
+  - Route-level headers override controller-level headers with the same name
+  - Enables consistent API versioning and common headers across all endpoints
+  - Example: `#[controller(path = "/api", header("x-api-version", "1.0"))]`
 
 ### Changed
 
