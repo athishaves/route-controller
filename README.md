@@ -70,7 +70,7 @@ impl UserController {
         axum::Json(user)
     }
 
-    #[post("/", extract(user = Json))]
+    #[post(extract(user = Json))]
     async fn create(user: User) -> String {
         format!("Created user: {} ({})", user.name, user.email)
     }
