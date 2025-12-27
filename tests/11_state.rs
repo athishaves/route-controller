@@ -51,6 +51,13 @@ impl StateController {
     *msg = format!("Message {}", id);
     format!("msg:{}", msg)
   }
+
+  #[get("/summary", extract(state = State))]
+  async fn get_summary(state: AppState) -> String {
+    let count = *state.counter.read().await;
+    let msg = state.message.read().await;
+    format!("count:{},msg:{}", count, msg)
+  }
 }
 
 #[tokio::test]
@@ -224,4 +231,83 @@ async fn test_concurrent_state_access() {
     .await
     .unwrap();
   assert_eq!(&body[..], b"count:5");
+}
+
+#[tokio::test]
+async fn test_accessing_both_state_fields() {
+  let state = AppState {
+    counter: Arc::new(RwLock::new(42)),
+    message: Arc::new(RwLock::new("hello world".to_string())),
+  };
+
+  let app = StateController::router().with_state(state);
+
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/api/summary")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+  let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    .await
+    .unwrap();
+  assert_eq!(&body[..], b"count:42,msg:hello world");
+}
+
+#[tokio::test]
+async fn test_both_fields_after_modifications() {
+  let state = AppState {
+    counter: Arc::new(RwLock::new(0)),
+    message: Arc::new(RwLock::new("".to_string())),
+  };
+
+  let app = StateController::router().with_state(state);
+
+  // Increment counter
+  app
+    .clone()
+    .oneshot(
+      Request::builder()
+        .method("POST")
+        .uri("/api/counter")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  // Set message
+  app
+    .clone()
+    .oneshot(
+      Request::builder()
+        .method("POST")
+        .uri("/api/message/100")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  // Get summary with both fields
+  let response = app
+    .oneshot(
+      Request::builder()
+        .uri("/api/summary")
+        .body(Body::empty())
+        .unwrap(),
+    )
+    .await
+    .unwrap();
+
+  assert_eq!(response.status(), StatusCode::OK);
+  let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+    .await
+    .unwrap();
+  assert_eq!(&body[..], b"count:1,msg:Message 100");
 }
