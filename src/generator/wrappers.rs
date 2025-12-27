@@ -1,9 +1,13 @@
 //! Wrapper function generation for route handlers
+use crate::parser::ControllerConfig;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::ItemImpl;
 
-pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
+pub fn generate_wrapper_functions(
+  impl_block: &ItemImpl,
+  controller_config: &ControllerConfig,
+) -> Vec<TokenStream> {
   let mut wrappers = vec![];
 
   for item in &impl_block.items {
@@ -33,8 +37,10 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
           }
         }
 
-        let has_response_headers =
-          !route_info.response_headers.is_empty() || route_info.content_type.is_some();
+        let has_response_headers = !route_info.response_headers.is_empty()
+          || route_info.content_type.is_some()
+          || !controller_config.response_headers.is_empty()
+          || controller_config.content_type.is_some();
 
         if needs_wrapper || has_response_headers {
           let handler_name = &method.sig.ident;
@@ -58,8 +64,10 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
           let return_type = &method.sig.output;
 
           // Determine if we need to wrap the return type with headers
-          let needs_header_wrapping =
-            !route_info.response_headers.is_empty() || route_info.content_type.is_some();
+          let needs_header_wrapping = !route_info.response_headers.is_empty()
+            || route_info.content_type.is_some()
+            || !controller_config.response_headers.is_empty()
+            || controller_config.content_type.is_some();
 
           let wrapper_return_type = if needs_header_wrapping {
             quote! { -> impl axum::response::IntoResponse }
@@ -223,16 +231,35 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
             #async_token fn #wrapper_name(#(#wrapper_params),*) #wrapper_return_type
           };
 
-          // Build header additions
-          let header_additions: Vec<_> = route_info
-            .response_headers
+          // Merge controller and route headers (route-level overrides controller-level)
+          let mut merged_headers: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+
+          // Add controller headers first
+          for (name, value) in &controller_config.response_headers {
+            merged_headers.insert(name.clone(), value.clone());
+          }
+
+          // Route-level headers override controller-level
+          for (name, value) in &route_info.response_headers {
+            merged_headers.insert(name.clone(), value.clone());
+          }
+
+          // Build header additions from merged headers
+          let header_additions: Vec<_> = merged_headers
             .iter()
             .map(|(name, value)| {
               quote! { (axum::http::header::HeaderName::from_static(#name), #value) }
             })
             .collect();
 
-          let wrapper_body = if let Some(ref ct) = route_info.content_type {
+          // Use route content_type if specified, otherwise use controller content_type
+          let final_content_type = route_info
+            .content_type
+            .as_ref()
+            .or(controller_config.content_type.as_ref());
+
+          let wrapper_body = if let Some(ref ct) = final_content_type {
             if !header_additions.is_empty() {
               quote! {
                 let response = Self::#handler_name(#(#call_args),*)#await_token;

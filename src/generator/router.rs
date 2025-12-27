@@ -6,8 +6,12 @@ use syn::{ImplItem, ItemImpl, Type};
 
 #[allow(unused_imports)]
 use crate::logger::log_verbose;
+use crate::parser::ControllerConfig;
 
-pub fn generate_route_registrations(impl_block: &ItemImpl) -> Vec<TokenStream> {
+pub fn generate_route_registrations(
+  impl_block: &ItemImpl,
+  controller_config: &ControllerConfig,
+) -> Vec<TokenStream> {
   let mut route_registrations = vec![];
 
   for item in &impl_block.items {
@@ -23,8 +27,10 @@ pub fn generate_route_registrations(impl_block: &ItemImpl) -> Vec<TokenStream> {
           .iter()
           .any(|p| p.extractor_type != crate::parser::ExtractorType::None);
 
-        let has_response_headers =
-          !route_info.response_headers.is_empty() || route_info.content_type.is_some();
+        let has_response_headers = !route_info.response_headers.is_empty()
+          || route_info.content_type.is_some()
+          || !controller_config.response_headers.is_empty()
+          || controller_config.content_type.is_some();
 
         if needs_wrapper || has_response_headers {
           // Generate a wrapper function that handles extraction
@@ -73,9 +79,11 @@ pub fn generate_router_impl(
   impl_block: &ItemImpl,
   name: &Type,
   final_router: TokenStream,
+  controller_config: &ControllerConfig,
 ) -> TokenStream {
   // Generate wrapper functions for handlers that need Json extraction
-  let wrapper_functions = super::wrappers::generate_wrapper_functions(impl_block);
+  let wrapper_functions =
+    super::wrappers::generate_wrapper_functions(impl_block, controller_config);
 
   // Check if any handler uses State extractor and get the state type
   let state_type: Option<Type> = impl_block.items.iter().find_map(|item| {
