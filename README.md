@@ -22,6 +22,8 @@ Generate Axum routers from controller-style implementations with declarative ext
   - `CookieParam` - Extract from cookies (requires `cookies` feature)
   - `SessionParam` - Extract from session storage (requires `sessions` feature)
 - **Response header support**: `header()` and `content_type()` attributes
+  - **Controller-level headers**: Apply headers to all routes in a controller
+  - **Route-level override**: Route headers override controller headers with the same name
 - Middleware support at the controller level
 - HTTP method attributes: `#[get]`, `#[post]`, `#[put]`, `#[delete]`, `#[patch]`, `#[head]`, `#[options]`, `#[trace]`
 
@@ -354,9 +356,40 @@ impl ContentController {
 
 ## Response Headers
 
-Add custom headers to your responses using the `header()` and `content_type()` attributes:
+Add custom headers to your responses using the `header()` and `content_type()` attributes at both the controller and route levels.
 
-### Single Header
+### Controller-Level Headers
+
+Apply headers to all routes in a controller. Route-level headers with the same name will override controller-level headers:
+
+```rust
+#[controller(
+    path = "/api",
+    header("x-api-version", "1.0"),
+    header("x-powered-by", "route-controller")
+)]
+impl ApiController {
+    // Inherits both controller headers
+    #[get("/data")]
+    async fn get_data() -> String {
+        "Data with controller headers".to_string()
+    }
+
+    // Overrides x-api-version, keeps x-powered-by
+    #[get("/v2", header("x-api-version", "2.0"))]
+    async fn get_data_v2() -> String {
+        "Data with overridden version".to_string()
+    }
+
+    // Adds route-specific header, keeps controller headers
+    #[get("/special", header("x-request-id", "abc-123"))]
+    async fn special() -> String {
+        "Special endpoint".to_string()
+    }
+}
+```
+
+### Route-Level Headers
 
 ```rust
 #[controller(path = "/api")]
@@ -386,10 +419,19 @@ impl ApiController {
 
 ### Content-Type Header
 
+Set content-type at controller or route level:
+
 ```rust
-#[controller(path = "/api")]
+// Controller-level content-type applies to all routes
+#[controller(path = "/api", content_type("application/json"))]
 impl ApiController {
-    // Set custom content type
+    // Inherits application/json content-type
+    #[get("/data")]
+    async fn get_data() -> String {
+        r#"{"status":"ok"}"#.to_string()
+    }
+
+    // Route overrides to XML
     #[get("/xml", content_type("application/xml"))]
     async fn get_xml() -> String {
         r#"<?xml version="1.0"?>
@@ -398,7 +440,7 @@ impl ApiController {
 </response>"#.to_string()
     }
 
-    // Plain text with charset
+    // Route overrides to plain text
     #[get("/text", content_type("text/plain; charset=utf-8"))]
     async fn get_text() -> String {
         "Plain text response".to_string()
@@ -406,14 +448,29 @@ impl ApiController {
 }
 ```
 
-### Combining Content-Type with Custom Headers
+### Combining Controller and Route Headers
+
+Controller headers provide a base set of headers, and routes can override or extend them:
 
 ```rust
-#[controller(path = "/api")]
+// Controller provides base headers and content-type
+#[controller(
+    path = "/api",
+    content_type("application/json"),
+    header("x-api-version", "1.0"),
+    header("x-service", "my-api")
+)]
 impl ApiController {
+    // Inherits all controller headers
+    #[get("/info")]
+    async fn get_info() -> axum::Json<Response> {
+        axum::Json(Response { status: "ok".to_string() })
+    }
+
+    // Override version and content-type, keep x-service
     #[post(
         "/data",
-        content_type("application/json"),
+        content_type("application/json; charset=utf-8"),
         header("x-api-version", "2.0"),
         header("x-rate-limit", "100")
     )]
@@ -426,13 +483,13 @@ impl ApiController {
 Test with:
 
 ```bash
-# Check headers
-curl -v http://localhost:3000/api/data
+# Check inherited headers
+curl -v http://localhost:3000/api/info
+# Output: x-api-version: 1.0, x-service: my-api, content-type: application/json
 
-# Output will include:
-# < x-api-version: 2.0
-# < x-rate-limit: 100
-# < content-type: application/json
+# Check overridden headers
+curl -v http://localhost:3000/api/data
+# Output: x-api-version: 2.0, x-service: my-api, x-rate-limit: 100
 ```
 
 ## Examples
