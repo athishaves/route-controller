@@ -509,18 +509,11 @@ See [examples/13_middleware.rs](examples/13_middleware.rs) for a complete exampl
 
 ## Verbose Logging
 
-Enable verbose logging during compilation:
-
-```toml
-[dependencies]
-route_controller = { version = "0.2.0", features = ["verbose-logging"] }
-```
-
-Or build/run using features flag directly:
+Enable verbose logging during compilation by setting the `ROUTE_CONTROLLER_VERBOSE` environment variable:
 
 ```bash
-cargo build --example basic --features verbose-logging
-cargo run --example basic --features verbose-logging
+ROUTE_CONTROLLER_VERBOSE=1 cargo build
+ROUTE_CONTROLLER_VERBOSE=1 cargo run --example basic
 ```
 
 This shows detailed information about route registration during compilation.

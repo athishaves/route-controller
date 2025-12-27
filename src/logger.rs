@@ -1,10 +1,9 @@
 //! Compile-time logging for macro expansion
 
-/// Logs messages only when verbose-logging feature is enabled
+/// Logs messages only when ROUTE_CONTROLLER_VERBOSE environment variable is set during compilation
 macro_rules! log_verbose {
 	($($arg:tt)*) => {
-		#[cfg(feature = "verbose-logging")]
-		{
+		if option_env!("ROUTE_CONTROLLER_VERBOSE").is_some() {
 			println!($($arg)*);
 		}
 	};

@@ -86,7 +86,6 @@
 //!   - `headers` - Enable `HeaderParam` extractor (extracts from request headers)
 //!   - `cookies` - Enable `CookieParam` extractor (requires axum-extra with cookie feature)
 //!   - `sessions` - Enable `SessionParam` extractor (requires tower-sessions)
-//!   - `verbose-logging` - Enable verbose logging during macro expansion
 //!
 //! ## Extractor Types
 //!
