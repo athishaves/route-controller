@@ -30,9 +30,31 @@ Generate Axum routers from controller-style implementations with declarative ext
 ```toml
 [dependencies]
 route_controller = "0.2.0"
-axum = "0.8"
+axum = "0.8"  # Also works with axum 0.7 and earlier versions
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
+```
+
+### Path Parameter Syntax
+
+The path parameter syntax depends on your Axum version:
+
+- **Axum 0.8+**: Use curly braces `{id}` for path parameters
+
+```rust
+#[get("/{id}", extract(id = Path))]
+async fn get_user(id: u32) -> String {
+    format!("User {}", id)
+}
+```
+
+- **Axum 0.7 and earlier**: Use colon syntax `:id` for path parameters
+
+```rust
+#[get("/:id", extract(id = Path))]
+async fn get_user(id: u32) -> String {
+    format!("User {}", id)
+}
 ```
 
 ### Optional Dependencies
