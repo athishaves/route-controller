@@ -75,7 +75,8 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
 
           // Handle Path extractors (must be first and combined into tuple if multiple)
           if !path_types.is_empty() {
-            if path_types.len() > 1 { // Multiple paths
+            if path_types.len() > 1 {
+              // Multiple paths
               wrapper_params.push(quote! {
                 axum::extract::Path((#(#path_names),*)): axum::extract::Path<(#(#path_types),*)>
               });
@@ -88,8 +89,7 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
               // Single path: extract normally
               let name = path_names[0];
               let ty = &path_types[0];
-              wrapper_params
-                .push(quote! { axum::extract::Path(#name): axum::extract::Path<#ty> });
+              wrapper_params.push(quote! { axum::extract::Path(#name): axum::extract::Path<#ty> });
               call_args.push(quote! { #name });
             }
           }
@@ -204,10 +204,9 @@ pub fn generate_wrapper_functions(impl_block: &ItemImpl) -> Vec<TokenStream> {
             }
           }
 
-          let wrapper_signature =
-            quote! {
-              #async_token fn #wrapper_name(#(#wrapper_params),*) #wrapper_return_type
-            };
+          let wrapper_signature = quote! {
+            #async_token fn #wrapper_name(#(#wrapper_params),*) #wrapper_return_type
+          };
 
           // Build header additions
           let header_additions: Vec<_> = route_info

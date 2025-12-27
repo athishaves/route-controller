@@ -32,7 +32,7 @@ pub fn parse_controller_attributes(attr: &TokenStream) -> ControllerConfig {
       let parts: Vec<&str> = arg.split("=").collect();
       if parts.len() == 2 {
         let value = parts[1].trim();
-        if let Ok(middleware_path) = syn::parse_str::<Path>(&value) {
+        if let Ok(middleware_path) = syn::parse_str::<Path>(value) {
           log_verbose!("Parsed middleware: [{}]", value);
           middlewares.push(middleware_path);
         }

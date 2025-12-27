@@ -71,7 +71,7 @@ pub fn generate_base_router(route_registrations: &[TokenStream]) -> TokenStream 
 
 pub fn generate_router_impl(
   impl_block: &ItemImpl,
-  name: &Box<Type>,
+  name: &Type,
   final_router: TokenStream,
 ) -> TokenStream {
   // Generate wrapper functions for handlers that need Json extraction
