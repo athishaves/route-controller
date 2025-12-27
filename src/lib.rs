@@ -226,6 +226,7 @@
 //! ```
 
 use proc_macro::TokenStream;
+use proc_macro_error::proc_macro_error;
 
 #[macro_use]
 mod logger;
@@ -234,6 +235,7 @@ mod generator;
 mod parser;
 
 #[proc_macro_attribute]
+#[proc_macro_error]
 pub fn controller(attr: TokenStream, item: TokenStream) -> TokenStream {
   controller::controller_impl(attr, item)
 }
