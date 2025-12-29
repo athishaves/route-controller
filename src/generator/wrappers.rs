@@ -2,13 +2,14 @@
 use crate::parser::ControllerConfig;
 use proc_macro2::TokenStream;
 use quote::quote;
+use std::collections::{HashMap, HashSet};
 use syn::ItemImpl;
 
 pub fn generate_wrapper_functions(
   impl_block: &ItemImpl,
   controller_config: &ControllerConfig,
 ) -> Vec<TokenStream> {
-  let mut wrappers = vec![];
+  let mut wrappers = Vec::with_capacity(impl_block.items.len());
 
   for item in &impl_block.items {
     if let syn::ImplItem::Fn(method) = item {
@@ -82,15 +83,15 @@ pub fn generate_wrapper_functions(
           // 3. Request parts that don't consume body (HeaderMap, CookieJar, Session)
           // 4. Body/Data extractors that consume the request body (Json, Form, Query, Bytes, String)
 
-          let mut wrapper_params = Vec::new();
-          let mut call_args = Vec::new();
+          let mut wrapper_params = Vec::with_capacity(params.len());
+          let mut call_args = Vec::with_capacity(params.len());
 
           // Store params for proper ordering
-          let mut state_params = Vec::new();
+          let mut state_params = Vec::with_capacity(1); // Usually at most 1 state param
           // HeaderMap, CookieJar, Session
-          let mut request_parts_params = std::collections::HashSet::new();
-          let mut body_params = Vec::new();
-          let mut other_params = Vec::new();
+          let mut request_parts_params = HashSet::with_capacity(3);
+          let mut body_params = Vec::with_capacity(2); // Most routes have 0-2 body params
+          let mut other_params = Vec::with_capacity(1);
 
           // Handle Path extractors (must be first and combined into tuple if multiple)
           if !path_types.is_empty() {
@@ -124,9 +125,8 @@ pub fn generate_wrapper_functions(
               }
               crate::parser::ExtractorType::State => {
                 // Extract state and pass it through
-                call_args.push(quote! { state.0.clone() });
-                let state_ty = &p.ty;
-                state_params.push(quote! { state: axum::extract::State<#state_ty> });
+                call_args.push(quote! { state.0 });
+                state_params.push(quote! { state: axum::extract::State<#ty> });
               }
               crate::parser::ExtractorType::HeaderParam => {
                 if let syn::Pat::Ident(pat_ident) = pat {
@@ -232,17 +232,18 @@ pub fn generate_wrapper_functions(
           };
 
           // Merge controller and route headers (route-level overrides controller-level)
-          let mut merged_headers: std::collections::HashMap<String, String> =
-            std::collections::HashMap::new();
+          let mut merged_headers: HashMap<&str, &str> = HashMap::with_capacity(
+            controller_config.response_headers.len() + route_info.response_headers.len(),
+          );
 
           // Add controller headers first
           for (name, value) in &controller_config.response_headers {
-            merged_headers.insert(name.clone(), value.clone());
+            merged_headers.insert(name.as_str(), value.as_str());
           }
 
           // Route-level headers override controller-level
           for (name, value) in &route_info.response_headers {
-            merged_headers.insert(name.clone(), value.clone());
+            merged_headers.insert(name.as_str(), value.as_str());
           }
 
           // Build header additions from merged headers

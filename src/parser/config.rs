@@ -13,17 +13,14 @@ pub struct ControllerConfig {
 
 pub fn parse_controller_attributes(attr: &TokenStream) -> ControllerConfig {
   let mut route_prefix: Option<String> = None;
-  let mut middlewares: Vec<Path> = vec![];
-  let mut response_headers: Vec<(String, String)> = vec![];
+  let mut middlewares: Vec<Path> = Vec::with_capacity(2); // Most controllers have 0-2 middlewares
+  let mut response_headers: Vec<(String, String)> = Vec::with_capacity(4); // Typical controllers have 0-4 headers
   let mut content_type: Option<String> = None;
 
   let attr_str = attr.to_string();
 
   // Parse path and middleware using split
-  let args = attr_str.split(",");
-  for arg in args {
-    let arg = arg.trim();
-
+  for arg in attr_str.split(',').map(str::trim) {
     if arg.starts_with("path") {
       let parts: Vec<&str> = arg.split("=").collect();
       if parts.len() == 2 {
@@ -34,8 +31,8 @@ pub fn parse_controller_attributes(attr: &TokenStream) -> ControllerConfig {
         if !value.starts_with('/') {
           value = format!("/{}", value);
         }
-        route_prefix = Some(value.clone());
         log_verbose!("Parsed route prefix: [{}]", value);
+        route_prefix = Some(value);
       } else {
         emit_call_site_error!("Invalid path attribute format. Expected: path = \"/route\"");
       }
@@ -82,12 +79,12 @@ pub fn parse_controller_attributes(attr: &TokenStream) -> ControllerConfig {
           if header_name.is_empty() || header_value.is_empty() {
             emit_call_site_warning!("Empty header name or value in controller header attribute");
           }
-          response_headers.push((header_name.clone(), header_value.clone()));
           log_verbose!(
             "Parsed controller header: [{}: {}]",
             header_name,
             header_value
           );
+          response_headers.push((header_name, header_value));
         } else {
           // Try parsing as tuple: ("name", "value")
           let parts: Vec<&str> = header_content.split(',').collect();
@@ -97,12 +94,12 @@ pub fn parse_controller_attributes(attr: &TokenStream) -> ControllerConfig {
             if header_name.is_empty() || header_value.is_empty() {
               emit_call_site_warning!("Empty header name or value in controller header attribute");
             }
-            response_headers.push((header_name.clone(), header_value.clone()));
             log_verbose!(
               "Parsed controller header: [{}: {}]",
               header_name,
               header_value
             );
+            response_headers.push((header_name, header_value));
           } else {
             emit_call_site_warning!(
               "Invalid header attribute format in controller. Expected: header(\"name\", \"value\") or header(name = \"value\")"
@@ -129,8 +126,8 @@ pub fn parse_controller_attributes(attr: &TokenStream) -> ControllerConfig {
         if ct_value.is_empty() {
           emit_call_site_warning!("Empty content_type value in controller attribute");
         }
-        content_type = Some(ct_value.clone());
         log_verbose!("Parsed controller content_type: [{}]", ct_value);
+        content_type = Some(ct_value);
       } else {
         emit_call_site_warning!("Unclosed parenthesis in content_type attribute");
       }
