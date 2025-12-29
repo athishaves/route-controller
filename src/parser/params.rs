@@ -52,9 +52,7 @@ pub fn analyze_params<'a>(
 
       // Check for duplicate parameter names (insert consumes param_name)
       if !seen_params.insert(param_name) {
-        emit_call_site_warning!(
-          "Duplicate parameter name found in function signature"
-        );
+        emit_call_site_warning!("Duplicate parameter name found in function signature");
       }
 
       params.push(ParamInfo {
