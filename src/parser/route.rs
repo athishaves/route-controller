@@ -2,6 +2,7 @@
 
 use proc_macro_error::{emit_call_site_error, emit_call_site_warning};
 use quote::ToTokens;
+use std::collections::{HashMap, HashSet};
 use syn::Attribute;
 
 use super::extractor_types::{ExtractorType, validate_extractors};
@@ -9,18 +10,15 @@ use super::extractor_types::{ExtractorType, validate_extractors};
 pub struct RouteInfo {
   pub method: String,
   pub path: String,
-  pub extractors: std::collections::HashMap<String, ExtractorType>,
+  pub extractors: HashMap<String, ExtractorType>,
   pub response_headers: Vec<(String, String)>, // (header_name, header_value)
   pub content_type: Option<String>,
 }
 
 /// Validates path parameters and emits errors/warnings
-fn validate_path_parameters(
-  path: &str,
-  extractors: &std::collections::HashMap<String, ExtractorType>,
-) {
+fn validate_path_parameters(path: &str, extractors: &HashMap<String, ExtractorType>) {
   // Extract path parameters from the path string
-  let mut path_params = std::collections::HashSet::new();
+  let mut path_params = HashSet::with_capacity(4); // Most paths have 0-4 params
 
   // Support both {param} and :param syntax
   for capture in path.split('/') {
@@ -92,8 +90,8 @@ pub fn extract_route_from_attrs(attrs: &[Attribute]) -> Option<RouteInfo> {
       match method.as_str() {
         "get" | "head" | "delete" | "options" | "patch" | "post" | "put" | "trace" | "connect" => {
           let mut route_path = "/".to_string();
-          let mut extractors = std::collections::HashMap::new();
-          let mut response_headers = Vec::new();
+          let mut extractors = HashMap::with_capacity(4); // Most routes have 0-4 extractors
+          let mut response_headers = Vec::with_capacity(2); // Most routes have 0-2 headers
           let mut content_type = None;
 
           // Parse attribute content

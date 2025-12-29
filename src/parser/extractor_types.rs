@@ -1,8 +1,9 @@
 //! Extractor type definitions for different parameter extraction strategies
 
 use proc_macro_error::{abort_call_site, emit_call_site_warning};
+use std::collections::HashMap;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ExtractorType {
   Path,
   Query,
@@ -22,6 +23,8 @@ pub enum ExtractorType {
   None,
 }
 
+const VALID_EXTRACTORS: &str = "Json, Form, Path, Query, State, Bytes, Text, Html, Xml, JavaScript, HeaderParam, CookieParam, SessionParam";
+
 impl ExtractorType {
   pub fn from_str(s: &str) -> Result<Self, String> {
     match s {
@@ -38,7 +41,10 @@ impl ExtractorType {
       "Html" => Ok(ExtractorType::Html),
       "Xml" => Ok(ExtractorType::Xml),
       "JavaScript" => Ok(ExtractorType::JavaScript),
-      _ => Err(format!("Unknown extractor type: '{}'", s)),
+      _ => Err(format!(
+        "Unknown extractor type: '{}'. Valid extractors are: {}",
+        s, VALID_EXTRACTORS
+      )),
     }
   }
 
@@ -66,10 +72,7 @@ impl ExtractorType {
 }
 
 /// Validates extractors and emits appropriate errors/warnings
-pub fn validate_extractors(
-  extractors: &std::collections::HashMap<String, ExtractorType>,
-  route_method: &str,
-) {
+pub fn validate_extractors(extractors: &HashMap<String, ExtractorType>, route_method: &str) {
   let body_extractors: Vec<_> = extractors
     .iter()
     .filter(|(_, ext)| ext.is_body_extractor())

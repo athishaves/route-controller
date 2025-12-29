@@ -12,7 +12,7 @@ pub fn generate_route_registrations(
   impl_block: &ItemImpl,
   controller_config: &ControllerConfig,
 ) -> Vec<TokenStream> {
-  let mut route_registrations = vec![];
+  let mut route_registrations = Vec::with_capacity(impl_block.items.len());
 
   for item in &impl_block.items {
     if let ImplItem::Fn(method) = item {
@@ -86,14 +86,14 @@ pub fn generate_router_impl(
     super::wrappers::generate_wrapper_functions(impl_block, controller_config);
 
   // Check if any handler uses State extractor and get the state type
-  let state_type: Option<Type> = impl_block.items.iter().find_map(|item| {
+  let state_type: Option<&Type> = impl_block.items.iter().find_map(|item| {
     if let syn::ImplItem::Fn(method) = item {
       if let Some(route_info) = crate::parser::extract_route_from_attrs(&method.attrs) {
         let params = crate::parser::analyze_params(&method.sig, &route_info.extractors);
         return params
           .iter()
           .find(|p| p.extractor_type == crate::parser::ExtractorType::State)
-          .map(|p| p.ty.clone());
+          .map(|p| p.ty);
       }
     }
     None
